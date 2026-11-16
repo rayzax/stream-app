@@ -28,7 +28,7 @@ export default function Login() {
     <div className="login-screen">
       <section className="login-card">
         <div className="brand" style={{ fontSize: 32 }}>
-          Stream
+          SyvStrm
         </div>
         <h1 className="login-title">Sign in</h1>
         <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

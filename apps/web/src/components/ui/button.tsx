@@ -8,7 +8,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-accent text-white hover:bg-accent-hover',
+        // Gold is an edge/text accent, never a fill — a solid gold button
+        // reads "casino," not "lounge." See docs/design-direction.md.
+        default: 'bg-surface-3 text-accent border border-accent hover:bg-border hover:border-accent-hover hover:text-accent-hover',
         ghost: 'bg-surface-2 text-text border border-border hover:bg-surface-3',
         live: 'bg-live text-white hover:bg-live/90',
       },

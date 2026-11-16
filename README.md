@@ -1,4 +1,4 @@
-# Stream
+# SyvStrm
 
 A private, mobile-first IPTV web app: Sports (live-now, grouped by league),
 TV (live channels with guide), Movies (VOD), and global search — backed by

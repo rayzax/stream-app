@@ -1,4 +1,6 @@
-# Stream — notes for Claude Code
+# SyvStrm — notes for Claude Code
+
+- App is branded "SyvStrm" in user-facing text only. Internal identifiers (npm workspaces `stream-api`/`stream-web`/`@stream/proxy`, GCP project `stream-iptv-prd`, Cloud Run service `stream-app`, the GitHub repo `stream-app`, Terraform resource names) are **not** part of the rename — see docs/design-direction.md "Brand" section.
 
 - **Invoke the `frontend-design` skill before any frontend work**, if it's installed in the session (`/plugin install frontend-design@claude-code-plugins`). If it isn't available, read `docs/design-direction.md` first instead and stay inside that declared direction rather than defaulting to generic Tailwind/shadcn looks.
 - Design direction is locked in `docs/design-direction.md` — one aesthetic, not re-decided per screen.

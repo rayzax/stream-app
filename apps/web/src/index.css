@@ -20,21 +20,25 @@
   --font-display: 'Big Shoulders', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
 
-  /* Two cool/hot accents, never interchanged — see design-direction.md */
-  --color-bg: #0b0d10;
-  --color-surface: #14181d;
-  --color-surface-2: #1c2128;
-  --color-surface-3: #242a32;
-  --color-border: #2a313a;
-  --color-border-strong: #3a4350;
-  --color-text: #e8eaed;
-  --color-muted: #9aa3ad;
-  --color-muted-2: #6b7480;
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-accent-light: #60a5fa;
-  --color-live: #dc2626;
-  --color-live-glow: #dc262680;
+  /* "Private members' lounge" — navy/gold/cream. See design-direction.md.
+     --on-accent is the text/icon color for anything sitting ON a gold
+     background — gold is light, so white text there fails contrast and
+     looks cheap. Never pair --accent-as-background with white text. */
+  --color-bg: #0a0d16;
+  --color-surface: #11162a;
+  --color-surface-2: #171d38;
+  --color-surface-3: #202849;
+  --color-border: #2d3660;
+  --color-border-strong: #424e85;
+  --color-text: #f3eada;
+  --color-muted: #b6a98c;
+  --color-muted-2: #8a8068;
+  --color-accent: #d4af37;
+  --color-accent-hover: #e4c158;
+  --color-accent-light: #e8cb73;
+  --color-on-accent: #0a0d16;
+  --color-live: #9b2242;
+  --color-live-glow: #9b224280;
 
   --radius-card: 12px;
   --radius-field: 10px;
@@ -66,6 +70,7 @@
   --accent: var(--color-accent);
   --accent-hover: var(--color-accent-hover);
   --accent-light: var(--color-accent-light);
+  --on-accent: var(--color-on-accent);
   --live: var(--color-live);
   --live-glow: var(--color-live-glow);
 
@@ -306,9 +311,9 @@ button {
 .btn {
   min-height: 44px;
   padding: 0 20px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
+  background: var(--surface-3);
+  color: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-field);
   font-weight: 600;
   display: inline-flex;
@@ -317,11 +322,14 @@ button {
   gap: 8px;
   transition:
     background-color 150ms ease,
+    border-color 150ms ease,
     transform 120ms ease;
 }
 
 .btn:hover {
-  background: var(--accent-hover);
+  background: var(--border);
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
 }
 .btn:active {
   transform: scale(0.97);
@@ -484,9 +492,9 @@ button {
 
 .play {
   min-height: 44px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
+  background: var(--surface-3);
+  color: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-field);
   display: flex;
   align-items: center;
@@ -495,10 +503,13 @@ button {
   font-weight: 600;
   transition:
     background-color 150ms ease,
+    border-color 150ms ease,
     transform 120ms ease;
 }
 .play:hover {
-  background: var(--accent-hover);
+  background: var(--border);
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
 }
 .play:active {
   transform: scale(0.97);
@@ -691,8 +702,8 @@ button {
 }
 
 .chip[aria-pressed='true'] {
-  color: #fff;
-  background: var(--accent);
+  color: var(--accent);
+  background: var(--surface-3);
   border-color: var(--accent);
 }
 
@@ -846,11 +857,12 @@ button {
   width: 72px;
   height: 72px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--surface-3);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
+  border: 2px solid var(--accent);
   transition: transform 150ms ease;
 }
 .play-overlay-btn:active {

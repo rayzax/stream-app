@@ -16,8 +16,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Stream',
-        short_name: 'Stream',
+        name: 'SyvStrm',
+        short_name: 'SyvStrm',
         display: 'standalone',
         orientation: 'any',
         scope: '/',

@@ -32,7 +32,7 @@ export default function Header() {
   return (
     <header className="app-header">
       <NavLink to="/" className="brand" viewTransition>
-        Stream
+        SyvStrm
       </NavLink>
       <nav className="tabs">
         {TABS.map((t) => (

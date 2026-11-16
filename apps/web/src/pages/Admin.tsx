@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useCurrentUser } from '../lib/AuthContext';
 import {
@@ -9,11 +9,14 @@ import {
   adminListMappings,
   adminCreateMapping,
   adminDeleteMapping,
-  getTv,
-  getSports,
+  adminListUnmappedGames,
+  adminListChannelCategories,
+  adminListChannelsInCategory,
   type AdminUser,
   type GameMapping,
-  type ChannelView,
+  type LiveGame,
+  type ChannelCategorySummary,
+  type ChannelSummary,
 } from '../lib/api';
 import { TrashIcon, PlusIcon } from '../components/icons';
 
@@ -129,51 +132,105 @@ function UsersSection({ currentUserId }: { currentUserId: string }) {
   );
 }
 
+/** A channel the admin has clicked, waiting for them to pick which unmapped game it covers. */
+interface PendingChannel {
+  streamId: number;
+  name: string;
+  categoryName: string;
+}
+
+function guessLeagueFromCategory(categoryName: string): string | undefined {
+  const upper = categoryName.toUpperCase();
+  return LEAGUES.find((l) => upper.includes(l.replace('Live ', '').split('/')[0].toUpperCase()));
+}
+
+function GamePicker({ channel, unmapped, onPick, onCancel }: {
+  channel: PendingChannel;
+  unmapped: Record<string, LiveGame[]>;
+  onPick: (league: string, game: LiveGame) => void;
+  onCancel: () => void;
+}) {
+  const guessedLeague = guessLeagueFromCategory(channel.categoryName);
+  const orderedLeagues = guessedLeague ? [guessedLeague, ...LEAGUES.filter((l) => l !== guessedLeague)] : LEAGUES;
+  const anyGames = orderedLeagues.some((l) => (unmapped[l] ?? []).length > 0);
+
+  return (
+    <div className="card" style={{ marginTop: 8 }}>
+      <div className="row-name">Map "{channel.name}" to which live game?</div>
+      {!anyGames && <div className="empty-state">No unmapped live games right now — check back when something's live.</div>}
+      {orderedLeagues.map((l) => {
+        const games = unmapped[l] ?? [];
+        if (games.length === 0) return null;
+        return (
+          <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div className="tile-label">{l.replace('Live ', '')}</div>
+            {games.map((g) => (
+              <button key={`${g.homeTeam}-${g.awayTeam}`} type="button" className="row" style={{ cursor: 'pointer', minHeight: 44 }} onClick={() => onPick(l, g)}>
+                <span className="row-name">
+                  {g.awayTeam} at {g.homeTeam}
+                </span>
+                <span className="row-meta">
+                  {g.awayScore}–{g.homeScore} {g.clock}
+                </span>
+              </button>
+            ))}
+          </div>
+        );
+      })}
+      <button className="chip" aria-pressed={false} onClick={onCancel}>
+        Cancel
+      </button>
+    </div>
+  );
+}
+
 function MappingsSection() {
   const [mappings, setMappings] = useState<GameMapping[] | null>(null);
-  const [channels, setChannels] = useState<ChannelView[]>([]);
+  const [unmapped, setUnmapped] = useState<Record<string, LiveGame[]> | null>(null);
+  const [categories, setCategories] = useState<ChannelCategorySummary[] | null>(null);
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
+  const [channelsByCategory, setChannelsByCategory] = useState<Record<string, ChannelSummary[]>>({});
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [channelFilter, setChannelFilter] = useState('');
-  const [league, setLeague] = useState(LEAGUES[0]);
-  const [label, setLabel] = useState('');
-  const [streamId, setStreamId] = useState<number | null>(null);
+  const [pendingChannel, setPendingChannel] = useState<PendingChannel | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function reload() {
     adminListMappings().then((r) => setMappings(r.mappings)).catch(() => setError('Failed to load mappings.'));
+    adminListUnmappedGames().then((r) => setUnmapped(r.leagues)).catch(() => {});
   }
   useEffect(reload, []);
   useEffect(() => {
-    getTv().then((r) => setChannels(r.categories.flatMap((c) => c.channels)));
-  }, []);
-  // Surface currently-detected live games too, so the admin can see what
-  // the heuristic already found (and fix anything wrong/missing).
-  const [detected, setDetected] = useState<Record<string, { name: string; streamId: number }[]>>({});
-  useEffect(() => {
-    getSports().then((r) => {
-      const flat: Record<string, { name: string; streamId: number }[]> = {};
-      for (const [lg, entries] of Object.entries(r.leagues)) {
-        flat[lg] = entries.map((e) => ({ name: e.name, streamId: e.streamId }));
-      }
-      setDetected(flat);
-    });
+    adminListChannelCategories()
+      .then((r) => setCategories(r.categories))
+      .catch(() => setError('Failed to load channel categories.'));
   }, []);
 
-  const filteredChannels = channelFilter.trim()
-    ? channels.filter((c) => c.name.toLowerCase().includes(channelFilter.trim().toLowerCase())).slice(0, 20)
-    : [];
+  const unmappedCount = useMemo(() => Object.values(unmapped ?? {}).reduce((sum, g) => sum + g.length, 0), [unmapped]);
 
-  async function createMapping(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!streamId || !label.trim()) {
-      setError('Pick a channel and enter a game label.');
+  async function toggleExpand(categoryId: string) {
+    if (expandedCategoryId === categoryId) {
+      setExpandedCategoryId(null);
       return;
     }
+    setExpandedCategoryId(categoryId);
+    setChannelFilter('');
+    if (!channelsByCategory[categoryId]) {
+      try {
+        const res = await adminListChannelsInCategory(categoryId);
+        setChannelsByCategory((prev) => ({ ...prev, [categoryId]: res.channels }));
+      } catch {
+        setError('Failed to load channels for that category.');
+      }
+    }
+  }
+
+  async function pickGame(league: string, game: LiveGame) {
+    if (!pendingChannel) return;
+    setError(null);
     try {
-      await adminCreateMapping(league, label.trim(), streamId);
-      setLabel('');
-      setStreamId(null);
-      setChannelFilter('');
+      await adminCreateMapping(league, `${game.awayTeam} at ${game.homeTeam}`, pendingChannel.streamId);
+      setPendingChannel(null);
       reload();
     } catch {
       setError('Could not save that mapping.');
@@ -185,62 +242,85 @@ function MappingsSection() {
     reload();
   }
 
+  const visibleCategories = categories?.filter((c) => c.categoryName.toLowerCase().includes(categoryFilter.trim().toLowerCase())) ?? [];
+  const expandedChannels = expandedCategoryId ? channelsByCategory[expandedCategoryId] ?? [] : [];
+  const filteredExpandedChannels = channelFilter.trim()
+    ? expandedChannels.filter((c) => c.name.toLowerCase().includes(channelFilter.trim().toLowerCase()))
+    : expandedChannels;
+
   return (
     <section className="league-section">
       <h2 className="league-heading">Game → channel mappings</h2>
       <div className="empty-state">
-        Pin a specific channel to a game label (e.g. "Bears at Packers") — this overrides or supplements the
-        automatic detection on the Sports tab.
+        {unmapped === null
+          ? 'Checking for live games without a mapped channel…'
+          : unmappedCount === 0
+            ? 'No unmapped live games right now.'
+            : `${unmappedCount} live game${unmappedCount === 1 ? '' : 's'} without a mapped channel. Expand the matching PPV category below (e.g. "US| NFL PPV"), find the channel, and map it.`}
       </div>
       {error && <div className="login-error">{error}</div>}
 
-      <form onSubmit={createMapping} style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 480 }}>
-        <select className="select" value={league} onChange={(e) => setLeague(e.target.value)}>
-          {LEAGUES.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-        <input className="field" placeholder="Game label, e.g. Bears at Packers" value={label} onChange={(e) => setLabel(e.target.value)} />
-        <input
-          className="field"
-          placeholder={streamId ? `Channel selected (stream ${streamId}) — type to change` : 'Search channels by name'}
-          value={channelFilter}
-          onChange={(e) => {
-            setChannelFilter(e.target.value);
-            setStreamId(null);
-          }}
-        />
-        {filteredChannels.length > 0 && !streamId && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
-            {filteredChannels.map((c) => (
-              <button
-                key={c.streamId}
-                type="button"
-                className="row"
-                style={{ cursor: 'pointer', minHeight: 40 }}
-                onClick={() => {
-                  setStreamId(c.streamId);
-                  setChannelFilter(c.name);
+      <input className="field" style={{ maxWidth: 320 }} placeholder="Filter categories, e.g. PPV" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} />
+
+      {!categories ? (
+        <div className="loading">Loading categories…</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {visibleCategories.map((c) => (
+            <div key={c.categoryId}>
+              <a
+                href="#"
+                className="cat"
+                aria-current={expandedCategoryId === c.categoryId}
+                onClick={(e) => {
+                  e.preventDefault();
+                  toggleExpand(c.categoryId);
                 }}
               >
-                <span className="row-name">{c.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        <button className="btn" type="submit" style={{ alignSelf: 'flex-start' }}>
-          <PlusIcon /> Save mapping
-        </button>
-      </form>
-
-      {detected[league]?.length > 0 && (
-        <div className="empty-state">
-          Currently detected in {league}: {detected[league].map((d) => d.name).join(', ')}
+                {c.categoryName}
+              </a>
+              {expandedCategoryId === c.categoryId && (
+                <div style={{ paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                  <input
+                    className="field"
+                    style={{ maxWidth: 280 }}
+                    placeholder="Filter channels in this category"
+                    value={channelFilter}
+                    onChange={(e) => setChannelFilter(e.target.value)}
+                  />
+                  {expandedChannels.length === 0 ? (
+                    <div className="loading">Loading channels…</div>
+                  ) : (
+                    <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {filteredExpandedChannels.map((ch) => (
+                        <button
+                          key={ch.streamId}
+                          type="button"
+                          className="row"
+                          style={{ cursor: 'pointer', minHeight: 40 }}
+                          onClick={() => setPendingChannel({ streamId: ch.streamId, name: ch.name, categoryName: c.categoryName })}
+                        >
+                          <span className="row-meta" style={{ flexShrink: 0 }}>
+                            {ch.num}
+                          </span>
+                          <span className="row-name">{ch.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {pendingChannel && pendingChannel.categoryName === c.categoryName && unmapped && (
+                    <GamePicker channel={pendingChannel} unmapped={unmapped} onPick={pickGame} onCancel={() => setPendingChannel(null)} />
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
+      <h3 className="league-heading" style={{ fontSize: 15 }}>
+        Current mappings
+      </h3>
       {!mappings ? (
         <div className="loading">Loading mappings…</div>
       ) : mappings.length === 0 ? (

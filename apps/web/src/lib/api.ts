@@ -78,6 +78,39 @@ export function adminDeleteMapping(id: string) {
   return request<{ ok: true }>(`/api/admin/mappings/${id}`, { method: 'DELETE' });
 }
 
+export interface LiveGame {
+  league: string;
+  name: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: string;
+  awayScore: string;
+  clock: string;
+}
+
+export function adminListUnmappedGames() {
+  return request<{ leagues: Record<string, LiveGame[]> }>('/api/admin/unmapped-games');
+}
+
+export interface ChannelCategorySummary {
+  categoryId: string;
+  categoryName: string;
+}
+
+export function adminListChannelCategories() {
+  return request<{ categories: ChannelCategorySummary[] }>('/api/admin/channel-categories');
+}
+
+export interface ChannelSummary {
+  streamId: number;
+  num: number;
+  name: string;
+}
+
+export function adminListChannelsInCategory(categoryId: string) {
+  return request<{ channels: ChannelSummary[] }>(`/api/admin/channel-categories/${categoryId}/channels`);
+}
+
 export interface SportsEntry {
   streamId: number;
   name: string;
@@ -96,6 +129,7 @@ export function getSports() {
 
 export interface ChannelView {
   streamId: number;
+  num: number;
   name: string;
   logo: string;
   categoryName: string;

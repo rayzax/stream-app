@@ -18,6 +18,7 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]> {
 
 export interface ChannelView {
   streamId: number;
+  num: number;
   name: string;
   logo: string;
   categoryName: string;
@@ -59,8 +60,6 @@ interface CachedSnapshot {
 
 const CACHE_OBJECT = 'catalog-cache.json';
 
-// "NFL 03: Team A vs Team B" / "NBA: Lakers @ Celtics" style provider event-channel names.
-const EVENT_CHANNEL_RE = /^([A-Za-z]{2,10})\s*\d*\s*:?\s*(.+?)\s+(?:vs\.?|@|v\.?)\s+(.+)$/i;
 const LEAGUE_TOKEN_TO_LABEL: Record<string, string> = {
   NFL: 'Live NFL',
   CFB: 'Live CFB',
@@ -81,9 +80,39 @@ function matchesUsFilter(name: string, patterns: RegExp[]): boolean {
   return patterns.some((re) => re.test(name));
 }
 
-function teamsLooselyMatch(a: string, b: string): boolean {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return norm(a).includes(norm(b)) || norm(b).includes(norm(a));
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Real provider channel names vary a lot in how they decorate the matchup
+ * ("NFL  | 13 - SNF 8:20pm Steelers at Bengals", "Boxing 3 | Canelo vs
+ * Mbilli  UK 2:00pm") — trying to parse out clean team names from that
+ * with a single regex is brittle (and originally missed "at" as a
+ * separator entirely, which is why NFL games never matched while NHL's
+ * "@" happened to work). Instead: just detect the league from the leading
+ * word, then confirm + attach clean data by checking whether BOTH of an
+ * ESPN live game's team nicknames appear in the channel name — this also
+ * naturally filters out the pre-game/post-game channels for the same PPV
+ * lineup, since there's no "in-progress" ESPN game for those to match.
+ */
+function leadingLeagueToken(name: string): string | undefined {
+  const m = /^([A-Za-z]{2,10})\b/.exec(name.trim());
+  return m ? LEAGUE_TOKEN_TO_LABEL[m[1].toUpperCase()] : undefined;
+}
+
+function teamNicknameCandidates(fullTeamName: string): string[] {
+  const words = fullTeamName.trim().split(/\s+/);
+  const candidates: string[] = [words[words.length - 1]];
+  if (words.length >= 2) candidates.push(words.slice(-2).join(' '));
+  return candidates;
+}
+
+function channelMatchesLiveGame(channelName: string, game: LiveGame): boolean {
+  const normChannel = normalizeForMatch(channelName);
+  const matchesEither = (fullName: string) =>
+    teamNicknameCandidates(fullName).some((c) => normChannel.includes(normalizeForMatch(c)));
+  return matchesEither(game.homeTeam) && matchesEither(game.awayTeam);
 }
 
 export class CatalogCache {
@@ -249,18 +278,22 @@ export class CatalogCache {
   channelsForCategory(categoryId: string): ChannelView[] {
     const now = new Date();
     const categoryName = this.liveCategoriesById.get(categoryId)?.category_name ?? '';
-    return (this.liveStreamsByCategory.get(categoryId) ?? []).map((s) => {
-      const channelId = s.epg_channel_id ?? '';
-      const { now: n, next } = nowNextFromIndex(this.epgIndex, channelId, now);
-      return {
-        streamId: s.stream_id,
-        name: s.name,
-        logo: s.stream_icon,
-        categoryName,
-        now: n ? { title: n.title, start: n.start.toISOString(), stop: n.stop.toISOString() } : undefined,
-        next: next ? { title: next.title, start: next.start.toISOString(), stop: next.stop.toISOString() } : undefined,
-      };
-    });
+    return (this.liveStreamsByCategory.get(categoryId) ?? [])
+      .slice()
+      .sort((a, b) => a.num - b.num)
+      .map((s) => {
+        const channelId = s.epg_channel_id ?? '';
+        const { now: n, next } = nowNextFromIndex(this.epgIndex, channelId, now);
+        return {
+          streamId: s.stream_id,
+          num: s.num,
+          name: s.name,
+          logo: s.stream_icon,
+          categoryName,
+          now: n ? { title: n.title, start: n.start.toISOString(), stop: n.stop.toISOString() } : undefined,
+          next: next ? { title: next.title, start: next.start.toISOString(), stop: next.stop.toISOString() } : undefined,
+        };
+      });
   }
 
   categoriesMovies(): XtreamCategory[] {
@@ -286,49 +319,28 @@ export class CatalogCache {
 
   /** The Sports tab: live-right-now, grouped by league, with an empty-state per league with nothing live. */
   sportsNow(): Record<string, SportsEntry[]> {
-    const now = new Date();
     const result: Record<string, SportsEntry[]> = {};
     for (const league of SPORTS_LEAGUES) result[league] = [];
 
     for (const stream of this.liveStreams) {
-      const eventMatch = EVENT_CHANNEL_RE.exec(stream.name);
-      const channelId = stream.epg_channel_id ?? '';
-      const { now: nowProgramme } = nowNextFromIndex(this.epgIndex, channelId, now);
-
-      let league: string | undefined;
-      let teamA: string | undefined;
-      let teamB: string | undefined;
-
-      if (eventMatch) {
-        const token = eventMatch[1].toUpperCase();
-        league = LEAGUE_TOKEN_TO_LABEL[token];
-        teamA = eventMatch[2].trim();
-        teamB = eventMatch[3].trim();
-      } else if (nowProgramme && /\b(NFL|NBA|MLB|NHL|NCAA|UFC|Boxing|Soccer)\b/i.test(nowProgramme.title)) {
-        const guess = EVENT_CHANNEL_RE.exec(nowProgramme.title);
-        if (guess) {
-          league = LEAGUE_TOKEN_TO_LABEL[guess[1].toUpperCase()];
-          teamA = guess[2].trim();
-          teamB = guess[3].trim();
-        }
-      }
-
+      const league = leadingLeagueToken(stream.name);
       if (!league) continue;
 
-      const liveGame = (this.liveGamesByLeague[league] ?? []).find(
-        (g) => (teamA && teamB && (teamsLooselyMatch(g.homeTeam, teamA) || teamsLooselyMatch(g.homeTeam, teamB))) ||
-          teamsLooselyMatch(g.name, stream.name),
-      );
+      const liveGames = this.liveGamesByLeague[league] ?? [];
+      if (liveGames.length === 0) continue; // nothing in-progress in this league right now
+
+      const matchedGame = liveGames.find((g) => channelMatchesLiveGame(stream.name, g));
+      if (!matchedGame) continue; // likely a pre-game/post-game/network channel, not this live game
 
       result[league].push({
         streamId: stream.stream_id,
         name: stream.name,
         league,
-        homeTeam: liveGame?.homeTeam ?? teamB,
-        awayTeam: liveGame?.awayTeam ?? teamA,
-        homeScore: liveGame?.homeScore,
-        awayScore: liveGame?.awayScore,
-        clock: liveGame?.clock,
+        homeTeam: matchedGame.homeTeam,
+        awayTeam: matchedGame.awayTeam,
+        homeScore: matchedGame.homeScore,
+        awayScore: matchedGame.awayScore,
+        clock: matchedGame.clock,
       });
     }
 
@@ -355,6 +367,38 @@ export class CatalogCache {
     }
 
     return result;
+  }
+
+  /**
+   * For the Admin Portal: ESPN games currently in progress that don't yet
+   * have a matching channel — either auto-detected (sportsNow()) or
+   * already admin-mapped. This is what the admin picks a channel for.
+   */
+  unmappedLiveGames(): Record<string, LiveGame[]> {
+    const covered = this.sportsNow();
+    const result: Record<string, LiveGame[]> = {};
+    for (const league of SPORTS_LEAGUES) {
+      const games = this.liveGamesByLeague[league] ?? [];
+      const coveredEntries = covered[league] ?? [];
+      result[league] = games.filter(
+        (g) =>
+          !coveredEntries.some(
+            (e) =>
+              (e.homeTeam === g.homeTeam && e.awayTeam === g.awayTeam) ||
+              (e.awayTeam && e.homeTeam && teamNicknameCandidates(g.homeTeam).some((c) => normalizeForMatch(e.homeTeam!).includes(normalizeForMatch(c))) &&
+                teamNicknameCandidates(g.awayTeam).some((c) => normalizeForMatch(e.awayTeam!).includes(normalizeForMatch(c)))),
+          ),
+      );
+    }
+    return result;
+  }
+
+  /** Channels in a category, without the now/next guide lookup — for the Admin Portal's category browser. */
+  channelsForCategoryBasic(categoryId: string): Array<{ streamId: number; num: number; name: string }> {
+    return (this.liveStreamsByCategory.get(categoryId) ?? [])
+      .slice()
+      .sort((a, b) => a.num - b.num)
+      .map((s) => ({ streamId: s.stream_id, num: s.num, name: s.name }));
   }
 
   search(query: string): Array<{ type: 'live' | 'vod'; streamId: number; name: string; categoryName: string }> {

@@ -1,8 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import type { UserStore, Role } from '../services/users.js';
 import type { GameMappingStore } from '../services/gameMappings.js';
+import type { CatalogCache } from '../services/catalogCache.js';
 
-export async function adminRoutes(fastify: FastifyInstance, users: UserStore, mappings: GameMappingStore): Promise<void> {
+export async function adminRoutes(
+  fastify: FastifyInstance,
+  users: UserStore,
+  mappings: GameMappingStore,
+  catalog: CatalogCache,
+): Promise<void> {
   // --- Users -----------------------------------------------------------
   fastify.get('/api/admin/users', async () => {
     return { users: await users.list() };
@@ -68,6 +74,23 @@ export async function adminRoutes(fastify: FastifyInstance, users: UserStore, ma
   // --- Game-to-channel mappings ------------------------------------------
   fastify.get('/api/admin/mappings', async () => {
     return { mappings: await mappings.list() };
+  });
+
+  // ESPN games currently live that don't have a channel yet (auto-detected
+  // or admin-mapped) — what the category browser below is for fixing.
+  fastify.get('/api/admin/unmapped-games', async () => {
+    return { leagues: catalog.unmappedLiveGames() };
+  });
+
+  // Category browser: list of live-TV categories, then channels within one
+  // (cheap — no guide/now-next lookup) so the admin can expand e.g. "US|
+  // NFL PPV" and pick the exact channel for a game above.
+  fastify.get('/api/admin/channel-categories', async () => {
+    return { categories: catalog.categoriesTv().map((c) => ({ categoryId: c.category_id, categoryName: c.category_name })) };
+  });
+
+  fastify.get<{ Params: { categoryId: string } }>('/api/admin/channel-categories/:categoryId/channels', async (req) => {
+    return { channels: catalog.channelsForCategoryBasic(req.params.categoryId) };
   });
 
   fastify.post<{ Body: { league?: string; label?: string; streamId?: number } }>(

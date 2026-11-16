@@ -16,6 +16,7 @@ function ChannelTile({ channel }: { channel: ChannelView }) {
   return (
     <button className="tile" style={{ textAlign: 'left', border: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => navigate(`/player/live/${channel.streamId}`)}>
       <div className="tile-head">
+        <span className="tile-number">{channel.num}</span>
         <span className="tile-name">{channel.name}</span>
       </div>
       {channel.now && (

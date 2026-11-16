@@ -45,7 +45,7 @@ await fastify.register(async (instance) => {
   // Admin-only sub-group — same session requirement plus a role check.
   await instance.register(async (admin) => {
     admin.addHook('preHandler', requireAdmin);
-    await adminRoutes(admin, users, mappings);
+    await adminRoutes(admin, users, mappings, catalog);
   });
 });
 

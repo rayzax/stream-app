@@ -4,12 +4,14 @@
 # repo — the things Terraform itself can't create because Terraform needs
 # them to run. Safe to re-run (idempotent).
 #
-# Usage: PROJECT_ID=... REGION=... GITHUB_REPO=owner/repo ./bootstrap.sh
+# Usage: PROJECT_ID=... REGION=... GITHUB_REPO=owner/repo DOMAIN=... BILLING_ACCOUNT_ID=... ./bootstrap.sh
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-stream-iptv-prd}"
 REGION="${REGION:-us-central1}"
 GITHUB_REPO="${GITHUB_REPO:-rayzax/stream-app}"
+DOMAIN="${DOMAIN:-stream.slottedgolf.us}"
+BILLING_ACCOUNT_ID="${BILLING_ACCOUNT_ID:-}"
 TFSTATE_BUCKET="${PROJECT_ID}-tfstate"
 DEPLOY_SA_NAME="stream-deployer"
 DEPLOY_SA_EMAIL="${DEPLOY_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -51,7 +53,6 @@ for role in roles/run.admin roles/artifactregistry.admin roles/secretmanager.adm
 done
 
 # Billing budget roles are granted on the billing account, not the project.
-BILLING_ACCOUNT_ID="${BILLING_ACCOUNT_ID:-}"
 if [ -n "$BILLING_ACCOUNT_ID" ]; then
   gcloud billing accounts add-iam-policy-binding "$BILLING_ACCOUNT_ID" \
     --member="serviceAccount:$DEPLOY_SA_EMAIL" \
@@ -103,6 +104,11 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   gh variable set WIF_SERVICE_ACCOUNT --repo "$GITHUB_REPO" --body "$DEPLOY_SA_EMAIL"
   gh variable set ARTIFACT_REGISTRY_REPO --repo "$GITHUB_REPO" --body "${REGION}-docker.pkg.dev/${PROJECT_ID}/stream"
   gh variable set TFSTATE_BUCKET --repo "$GITHUB_REPO" --body "$TFSTATE_BUCKET"
+  gh variable set DOMAIN --repo "$GITHUB_REPO" --body "$DOMAIN"
+  [ -n "$BILLING_ACCOUNT_ID" ] && gh variable set BILLING_ACCOUNT_ID --repo "$GITHUB_REPO" --body "$BILLING_ACCOUNT_ID"
+  # Defaults — change later with `gh variable set STREAM_MODE --body homelab` etc.
+  gh variable set STREAM_MODE --repo "$GITHUB_REPO" --body "cloudrun" 2>/dev/null || true
+  gh variable set HOMELAB_PROXY_URL --repo "$GITHUB_REPO" --body "" 2>/dev/null || true
   echo "    set via gh CLI."
 else
   cat <<EOF
@@ -114,6 +120,10 @@ else
       WIF_SERVICE_ACCOUNT     = $DEPLOY_SA_EMAIL
       ARTIFACT_REGISTRY_REPO  = ${REGION}-docker.pkg.dev/${PROJECT_ID}/stream
       TFSTATE_BUCKET          = $TFSTATE_BUCKET
+      DOMAIN                  = $DOMAIN
+      BILLING_ACCOUNT_ID      = $BILLING_ACCOUNT_ID
+      STREAM_MODE             = cloudrun
+      HOMELAB_PROXY_URL       = (empty)
 EOF
 fi
 

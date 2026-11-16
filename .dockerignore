@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/dist
+**/.vite
+design
+DESIGN_NOTES.md
+PROMPT.md
+terraform
+.git
+.github
+*.log
+scripts
+homelab
+*.tfstate*
+.terraform

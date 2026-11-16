@@ -1,26 +1,21 @@
-import { Link } from 'react-router-dom'
+import { NavLink } from 'react-router-dom';
+import { GlobeIcon, TvIcon, FilmIcon } from './icons';
+
+const TABS = [
+  { to: '/', label: 'Sports', Icon: GlobeIcon },
+  { to: '/tv', label: 'TV', Icon: TvIcon },
+  { to: '/movies', label: 'Movies', Icon: FilmIcon },
+];
 
 export default function TabBar() {
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      backgroundColor: 'var(--surface)',
-      borderTop: `1px solid var(--surface-2)`,
-      padding: '12px 0',
-      paddingBottom: `calc(12px + env(safe-area-inset-bottom, 0))`,
-      gap: '10px',
-    }}>
-      <Link to="/" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', color: 'var(--text)' }}>
-        Sports
-      </Link>
-      <Link to="/tv" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', color: 'var(--text)' }}>
-        TV
-      </Link>
-      <Link to="/movies" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', color: 'var(--text)' }}>
-        Movies
-      </Link>
-    </div>
-  )
+    <nav className="tabbar">
+      {TABS.map(({ to, label, Icon }) => (
+        <NavLink key={to} to={to} end>
+          <Icon />
+          {label}
+        </NavLink>
+      ))}
+    </nav>
+  );
 }

@@ -15,7 +15,11 @@
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
     "@fastify/cors": "^11.4.3",
+    "@fastify/static": "^10.1.11",
+    "@google-cloud/storage": "^7.14.0",
+    "@stream/proxy": "*",
     "bcrypt": "^6.0.0",
+    "fast-xml-parser": "^4.5.1",
     "fastify": "^5.12.8"
   },
   "devDependencies": {

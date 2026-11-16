@@ -1,0 +1,21 @@
+{
+  "name": "@stream/proxy",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p .",
+    "dev": "tsx watch src/standalone.ts",
+    "start": "node dist/standalone.js"
+  },
+  "dependencies": {
+    "fastify": "^5.12.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "tsx": "^4.23.15"
+  }
+}

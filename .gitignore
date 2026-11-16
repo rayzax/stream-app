@@ -13,6 +13,8 @@ terraform/terraform.tfvars
 terraform/backend.hcl
 terraform/tfplan
 *.tfplan
+homelab/.env
+homelab/tailscale-state/
 *.log
 .DS_Store
 *.tsbuildinfo

@@ -1,0 +1,47 @@
+services:
+  proxy:
+    build:
+      context: ..
+      dockerfile: homelab/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8181"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8181/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    # No host port published — only the cloudflared sidecar is exposed to
+    # the internet, over the shared network below.
+    expose:
+      - "8181"
+    networks: [homelab]
+
+  # Cloudflare Tunnel sidecar: exposes `proxy` over HTTPS without opening any
+  # inbound port on your router. Create the tunnel once in the Cloudflare
+  # Zero Trust dashboard (Networks > Tunnels), point its public hostname at
+  # http://proxy:8181, and put the tunnel token in .env as TUNNEL_TOKEN.
+  #
+  # Prefer Tailscale Funnel instead? Swap this service for:
+  #   tailscale:
+  #     image: tailscale/tailscale:latest
+  #     environment:
+  #       TS_AUTHKEY: ${TS_AUTHKEY}
+  #       TS_EXTRA_ARGS: --funnel
+  #       TS_SERVE_CONFIG: /config/serve.json   # proxy http://proxy:8181
+  #     volumes: ["./tailscale-state:/var/lib/tailscale"]
+  #     network_mode: service:proxy
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on:
+      proxy:
+        condition: service_healthy
+    networks: [homelab]
+
+networks:
+  homelab: {}

@@ -1,8 +1,40 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { getSports, getStreamToken, type SportsEntry } from '../lib/api';
 import VideoPlayer from '../components/VideoPlayer';
 import { BackIcon } from '../components/icons';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '../components/ui/drawer';
+import { Button } from '../components/ui/button';
+import { ScoreFlip } from '../components/ScoreFlip';
+
+function OtherGamesList({ others, onPick }: { others: SportsEntry[]; onPick: (streamId: number) => void }) {
+  return (
+    <>
+      {others.map((g) => (
+        <a
+          key={g.streamId}
+          href="#"
+          className="game"
+          onClick={(e) => {
+            e.preventDefault();
+            onPick(g.streamId);
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="game-title">{g.homeTeam && g.awayTeam ? `${g.awayTeam} at ${g.homeTeam}` : g.name}</div>
+            {g.homeScore !== undefined && (
+              <div className="game-meta">
+                <ScoreFlip value={g.awayScore!} /> <span className="score-sep" /> <ScoreFlip value={g.homeScore!} /> {g.clock}
+              </div>
+            )}
+          </div>
+          <span className="pill">LIVE</span>
+        </a>
+      ))}
+    </>
+  );
+}
 
 export default function Player() {
   const { type, id } = useParams<{ type: 'live' | 'vod'; id: string }>();
@@ -38,51 +70,59 @@ export default function Player() {
   if (error) return <div className="error-state">Couldn't start playback.</div>;
 
   const title = current ? (current.homeTeam && current.awayTeam ? `${current.awayTeam} at ${current.homeTeam}` : current.name) : '';
+  const hasOthers = type === 'live' && !!league && others.length > 0;
+
+  function goToGame(id: number) {
+    navigate(`/player/live/${id}`);
+  }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
-        <button onClick={() => navigate(-1)} aria-label="Back" className="ctl">
-          <BackIcon />
-        </button>
-        <span className="muted" style={{ color: 'var(--muted)' }}>Back to {type === 'live' ? 'Sports' : 'Movies'}</span>
-      </div>
-      <div className="player-layout">
-        <section className="player-main">
-          {token ? (
-            <VideoPlayer src={token.url} isLive={type === 'live'} via={token.via} />
-          ) : (
-            <div className="video-wrap" />
-          )}
-          {title && <h1 className="page-title">{title}</h1>}
-        </section>
-        {type === 'live' && league && others.length > 0 && (
-          <aside className="player-aside">
-            <h2 className="league-heading">Other live {league.replace('Live ', '')}</h2>
-            {others.map((g) => (
-              <a
-                key={g.streamId}
-                href="#"
-                className="game"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(`/player/live/${g.streamId}`);
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="game-title">{g.homeTeam && g.awayTeam ? `${g.awayTeam} at ${g.homeTeam}` : g.name}</div>
-                  {g.homeScore !== undefined && (
-                    <div className="game-meta">
-                      {g.awayScore}–{g.homeScore} {g.clock}
+    <LazyMotion features={domAnimation}>
+      <MotionConfig reducedMotion="user">
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+            <button onClick={() => navigate(-1)} aria-label="Back" className="ctl">
+              <BackIcon />
+            </button>
+            <span className="muted" style={{ color: 'var(--muted)' }}>
+              Back to {type === 'live' ? 'Sports' : 'Movies'}
+            </span>
+          </div>
+          <div className="player-layout">
+            <section className="player-main">
+              {token ? <VideoPlayer src={token.url} isLive={type === 'live'} via={token.via} /> : <div className="video-wrap" />}
+              {title && <h1 className="page-title">{title}</h1>}
+
+              {/* Mobile: bottom-sheet trigger instead of a stacked sidebar. */}
+              {hasOthers && (
+                <Drawer>
+                  <DrawerTrigger asChild>
+                    <Button variant="ghost" className="md:hidden">
+                      Other live {league!.replace('Live ', '')} ({others.length})
+                    </Button>
+                  </DrawerTrigger>
+                  <DrawerContent>
+                    <DrawerHeader>
+                      <DrawerTitle>Other live {league!.replace('Live ', '')}</DrawerTitle>
+                    </DrawerHeader>
+                    <div className="flex flex-col gap-2 overflow-y-auto px-5 pb-6">
+                      <OtherGamesList others={others} onPick={goToGame} />
                     </div>
-                  )}
-                </div>
-                <span className="pill">LIVE</span>
-              </a>
-            ))}
-          </aside>
-        )}
-      </div>
-    </div>
+                  </DrawerContent>
+                </Drawer>
+              )}
+            </section>
+
+            {/* Desktop: sidebar (hidden on mobile via CSS, see index.css .player-aside). */}
+            {hasOthers && (
+              <aside className="player-aside">
+                <h2 className="league-heading">Other live {league!.replace('Live ', '')}</h2>
+                <OtherGamesList others={others} onPick={goToGame} />
+              </aside>
+            )}
+          </div>
+        </div>
+      </MotionConfig>
+    </LazyMotion>
   );
 }

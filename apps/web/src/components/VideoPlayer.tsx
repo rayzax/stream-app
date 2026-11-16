@@ -18,6 +18,27 @@ export default function VideoPlayer({ src, isLive, via }: VideoPlayerProps) {
   const [started, setStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function scheduleHide() {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setControlsVisible(false), 3000);
+  }
+
+  function showControls() {
+    setControlsVisible(true);
+    scheduleHide();
+  }
+
+  useEffect(() => {
+    if (!started) return;
+    scheduleHide();
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started]);
 
   useEffect(() => {
     if (!started) return;
@@ -104,7 +125,11 @@ export default function VideoPlayer({ src, isLive, via }: VideoPlayerProps) {
   }
 
   return (
-    <div className="video-wrap">
+    <div
+      className="video-wrap"
+      onClick={() => started && showControls()}
+      onTouchStart={() => started && showControls()}
+    >
       <video
         ref={videoRef}
         playsInline
@@ -122,7 +147,18 @@ export default function VideoPlayer({ src, isLive, via }: VideoPlayerProps) {
       {started && (
         <div
           className="player-controls"
-          style={{ position: 'absolute', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 6 }}
+          style={{
+            position: 'absolute',
+            bottom: 8,
+            left: 8,
+            right: 8,
+            background: 'rgba(0,0,0,0.5)',
+            borderRadius: 10,
+            padding: 6,
+            opacity: controlsVisible ? 1 : 0,
+            transform: controlsVisible ? 'translateY(0)' : 'translateY(6px)',
+            pointerEvents: controlsVisible ? 'auto' : 'none',
+          }}
         >
           <button className="ctl" aria-pressed={playing} onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
             {playing ? <PauseIcon /> : <PlayIcon />}

@@ -321,6 +321,11 @@ export class CatalogCache {
   sportsNow(): Record<string, SportsEntry[]> {
     const result: Record<string, SportsEntry[]> = {};
     for (const league of SPORTS_LEAGUES) result[league] = [];
+    // Providers often carry several feeds for the same game (e.g. a "4k"
+    // variant alongside the standard one) — only the first channel found
+    // per distinct game is kept, so the Sports tab shows one entry per
+    // game rather than one per feed.
+    const seenGames = new Set<string>();
 
     for (const stream of this.liveStreams) {
       const league = leadingLeagueToken(stream.name);
@@ -331,6 +336,10 @@ export class CatalogCache {
 
       const matchedGame = liveGames.find((g) => channelMatchesLiveGame(stream.name, g));
       if (!matchedGame) continue; // likely a pre-game/post-game/network channel, not this live game
+
+      const gameKey = `${league}|${matchedGame.homeTeam}|${matchedGame.awayTeam}`;
+      if (seenGames.has(gameKey)) continue;
+      seenGames.add(gameKey);
 
       result[league].push({
         streamId: stream.stream_id,

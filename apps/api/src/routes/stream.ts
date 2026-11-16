@@ -34,7 +34,7 @@ export async function streamRoutes(fastify: FastifyInstance, config: AppConfig):
         }
       }
 
-      const path = type === 'live' ? `/stream/live/${token}` : `/stream/vod/${token}`;
+      const path = type === 'live' ? `/stream/live?token=${token}` : `/stream/vod?token=${token}`;
       return { url: `${baseUrl}${path}`, via, expiresInSeconds: 6 * 60 * 60 };
     },
   );

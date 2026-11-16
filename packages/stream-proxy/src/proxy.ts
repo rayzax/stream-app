@@ -53,7 +53,12 @@ async function rewriteAndSendPlaylist(
       if (!trimmed || trimmed.startsWith('#')) return line;
       const resolved = resolveSegmentUrl(upstreamUrl, trimmed);
       const encoded = Buffer.from(resolved.toString()).toString('base64url');
-      return `/stream/seg/${token}/${encoded}`;
+      // Query params, not path segments: tokens/encoded URLs regularly run
+      // >100 chars, and a single path SEGMENT over ~100 chars gets silently
+      // 404'd (seen on Cloud Run's default domain — likely GFE-level path
+      // canonicalization, not a Fastify limit) while query strings of the
+      // same or greater length work fine.
+      return `/stream/seg?token=${token}&u=${encoded}`;
     })
     .join('\n');
   reply
@@ -79,8 +84,8 @@ async function proxyBinary(upstreamRes: Response, req: FastifyRequest, reply: Fa
 export async function streamProxyPlugin(fastify: FastifyInstance, opts: StreamProxyOptions): Promise<void> {
   const { xtream, hmacKey } = opts;
 
-  fastify.get<{ Params: { token: string } }>('/stream/live/:token', async (req, reply) => {
-    const verified = verifyStreamToken(req.params.token, hmacKey);
+  fastify.get<{ Querystring: { token: string } }>('/stream/live', async (req, reply) => {
+    const verified = verifyStreamToken(req.query.token, hmacKey);
     if (!verified.ok || verified.payload.t !== 'live') {
       return reply.status(401).send({ error: 'invalid_token' });
     }
@@ -98,17 +103,17 @@ export async function streamProxyPlugin(fastify: FastifyInstance, opts: StreamPr
     if (!upstreamRes.ok) {
       return reply.status(502).send({ error: 'upstream_error', status: upstreamRes.status });
     }
-    return rewriteAndSendPlaylist(upstreamUrl, req.params.token, upstreamRes, reply);
+    return rewriteAndSendPlaylist(upstreamUrl, req.query.token, upstreamRes, reply);
   });
 
-  fastify.get<{ Params: { token: string; encoded: string } }>('/stream/seg/:token/:encoded', async (req, reply) => {
-    const verified = verifyStreamToken(req.params.token, hmacKey);
+  fastify.get<{ Querystring: { token: string; u: string } }>('/stream/seg', async (req, reply) => {
+    const verified = verifyStreamToken(req.query.token, hmacKey);
     if (!verified.ok) {
       return reply.status(401).send({ error: 'invalid_token' });
     }
     let upstreamUrl: string;
     try {
-      upstreamUrl = Buffer.from(req.params.encoded, 'base64url').toString('utf8');
+      upstreamUrl = Buffer.from(req.query.u, 'base64url').toString('utf8');
       // Only ever fetch something derived from our own configured Xtream server.
       if (!upstreamUrl.startsWith(xtream.server.replace(/\/+$/, ''))) {
         throw new Error('origin_mismatch');
@@ -130,13 +135,13 @@ export async function streamProxyPlugin(fastify: FastifyInstance, opts: StreamPr
     }
 
     if (isPlaylist(upstreamRes.headers.get('content-type'), upstreamUrl)) {
-      return rewriteAndSendPlaylist(upstreamUrl, req.params.token, upstreamRes, reply);
+      return rewriteAndSendPlaylist(upstreamUrl, req.query.token, upstreamRes, reply);
     }
     return proxyBinary(upstreamRes, req, reply);
   });
 
-  fastify.get<{ Params: { token: string } }>('/stream/vod/:token', async (req, reply) => {
-    const verified = verifyStreamToken(req.params.token, hmacKey);
+  fastify.get<{ Querystring: { token: string } }>('/stream/vod', async (req, reply) => {
+    const verified = verifyStreamToken(req.query.token, hmacKey);
     if (!verified.ok || verified.payload.t !== 'vod') {
       return reply.status(401).send({ error: 'invalid_token' });
     }

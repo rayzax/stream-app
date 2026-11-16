@@ -44,7 +44,7 @@ echo "==> Granting deploy SA the roles it needs to run Terraform + push images..
 for role in roles/run.admin roles/artifactregistry.admin roles/secretmanager.admin \
             roles/iam.serviceAccountAdmin roles/iam.serviceAccountUser \
             roles/resourcemanager.projectIamAdmin roles/storage.admin \
-            roles/serviceusage.serviceUsageAdmin; do
+            roles/serviceusage.serviceUsageAdmin roles/datastore.owner; do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:$DEPLOY_SA_EMAIL" \
     --role="$role" \

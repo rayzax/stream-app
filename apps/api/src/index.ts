@@ -5,12 +5,15 @@ import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import { streamProxyPlugin } from '@stream/proxy';
 import { loadConfig } from './config.js';
-import { requireSession } from './lib/authGuard.js';
+import { requireSession, requireAdmin } from './lib/authGuard.js';
 import { authRoutes } from './routes/auth.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { streamRoutes } from './routes/stream.js';
+import { adminRoutes } from './routes/admin.js';
 import { XtreamClient } from './services/xtreamClient.js';
 import { CatalogCache } from './services/catalogCache.js';
+import { UserStore } from './services/users.js';
+import { GameMappingStore } from './services/gameMappings.js';
 
 const config = loadConfig();
 const fastify = Fastify({ logger: true });
@@ -23,18 +26,27 @@ await fastify.register(cookie);
 
 fastify.get('/healthz', async () => ({ status: 'ok' }));
 
+const users = new UserStore();
+const mappings = new GameMappingStore();
+
 // --- Auth (public: /api/login, /api/logout) ---------------------------------
-await authRoutes(fastify, config);
+await authRoutes(fastify, config, users);
 
 // --- Session-gated API routes -----------------------------------------------
 const xtream = new XtreamClient(config.xtream);
 const catalog = new CatalogCache(config, xtream);
 
 await fastify.register(async (instance) => {
-  instance.addHook('preHandler', requireSession(config.sessionSigningKey));
-  instance.get('/api/session', async () => ({ ok: true }));
+  instance.addHook('preHandler', requireSession(config.sessionSigningKey, users));
+  instance.get('/api/session', async (req) => ({ ok: true, user: req.user }));
   await catalogRoutes(instance, catalog);
   await streamRoutes(instance, config);
+
+  // Admin-only sub-group — same session requirement plus a role check.
+  await instance.register(async (admin) => {
+    admin.addHook('preHandler', requireAdmin);
+    await adminRoutes(admin, users, mappings);
+  });
 });
 
 // --- Stream proxy (public route, but gated by its own short-lived token) ---

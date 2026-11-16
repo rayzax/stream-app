@@ -24,7 +24,6 @@ export interface AppConfig {
   host: string;
   nodeEnv: string;
   xtream: { server: string; username: string; password: string };
-  appPasswordHash: string;
   sessionSigningKey: string;
   streamTokenHmacKey: string;
   cacheBucket: string;
@@ -51,7 +50,6 @@ export function loadConfig(): AppConfig {
       username: requireEnv('XTREAM_USERNAME'),
       password: requireEnv('XTREAM_PASSWORD'),
     },
-    appPasswordHash: requireEnv('APP_PASSWORD_HASH'),
     sessionSigningKey: requireEnv('SESSION_SIGNING_KEY'),
     streamTokenHmacKey: requireEnv('STREAM_TOKEN_HMAC_KEY'),
     cacheBucket: process.env.CACHE_BUCKET ?? '',

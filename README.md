@@ -9,9 +9,13 @@ an Xtream Codes provider, deployed on Cloud Run.
 - **Backend:** Node + Fastify. Fetches and caches the Xtream catalog + XMLTV
   guide, filters to US content, issues short-lived signed stream tokens
   (the browser never sees provider credentials or raw HTTP stream URLs).
-- **Infra:** Terraform (Cloud Run, Artifact Registry, Secret Manager, a GCS
-  cache bucket, custom domain mapping, a billing budget alert), deployed via
-  GitHub Actions.
+- **Auth:** multi-user, role-based (`admin` / `user`) — users live in
+  Firestore. Admins get an in-app Admin Portal to manage users and to pin
+  specific channels to games (overriding/supplementing the automatic sports
+  detection). Regular users only see the normal app.
+- **Infra:** Terraform (Cloud Run, Artifact Registry, Secret Manager,
+  Firestore, a GCS cache bucket, custom domain mapping, a billing budget
+  alert), deployed via GitHub Actions.
 - **Video delivery** is pluggable: Cloud Run proxies video by default
   (`STREAM_MODE=cloudrun`); a homelab container can take over later to cut
   egress cost, with automatic fallback to Cloud Run if it's down.
@@ -27,7 +31,7 @@ packages/
                    rewriting) — used by Cloud Run and the homelab image
 terraform/  Infrastructure as code
 homelab/    Optional homelab proxy image + docker-compose + its own README
-scripts/    bootstrap.sh, setup-secrets.sh, setup-app-password.sh
+scripts/    bootstrap.sh, setup-secrets.sh, create-admin-user.sh
 ```
 
 ## Prerequisites
@@ -60,15 +64,17 @@ scripts/    bootstrap.sh, setup-secrets.sh, setup-app-password.sh
    This stands up everything except the real app image (the Cloud Run
    service starts on a placeholder image until CI pushes a real one) and
    the real secret values.
-3. **Secrets** — run these yourself, locally, interactively. Nothing you
-   type is echoed, written to disk, or committed; values go straight to
-   Secret Manager:
+3. **Secrets + your first admin login** — run these yourself, locally,
+   interactively. Nothing you type is echoed, written to disk, or
+   committed:
    ```
-   npm install    # once, from repo root — installs apps/api's bcrypt, needed by the script below
-   PROJECT_ID=your-project ./scripts/setup-secrets.sh        # Xtream creds + app password
-   # or, to only (re)set the app password later:
-   PROJECT_ID=your-project ./scripts/setup-app-password.sh
+   npm install    # once, from repo root — installs apps/api's bcrypt + Firestore client
+   PROJECT_ID=your-project ./scripts/setup-secrets.sh         # Xtream creds + signing keys -> Secret Manager
+   PROJECT_ID=your-project ./scripts/create-admin-user.sh     # your first login -> Firestore
    ```
+   After that, sign in and create any other users from the Admin Portal in
+   the app itself (the shield icon in the header, admins only) — no more
+   scripts needed for that.
 4. **DNS**: `terraform output dns_records_to_add` tells you the CNAME to
    add at your DNS provider. **If your DNS is proxied through Cloudflare
    (orange cloud), switch that record to "DNS only" (grey cloud) first** —
@@ -107,11 +113,16 @@ redeploy). The player shows "Streaming via Homelab" when active, and falls
 back to "Streaming via Cloud" automatically if your homelab proxy's health
 check fails.
 
+## Managing users
+
+Sign in as an admin and open the Admin Portal (shield icon in the header)
+to create/disable/delete users, change roles, and reset passwords. There's
+always at least one enabled admin enforced server-side — you can't demote,
+disable, or delete the last one. If you ever lock yourself out entirely
+(e.g. deleted via Firestore directly), re-run `scripts/create-admin-user.sh`.
+
 ## Rotating secrets
 
-- **App password**: `PROJECT_ID=your-project ./scripts/setup-app-password.sh`
-  — generates a new bcrypt hash and writes it to Secret Manager. Redeploy
-  (or restart the Cloud Run revision) to pick it up.
 - **Stream-token HMAC key**: rotating this invalidates all currently-issued
   stream tokens (anyone mid-playback has to reload). Generate a new one and
   write it with the same pattern `setup-secrets.sh` uses:
@@ -125,11 +136,16 @@ check fails.
 
 ## Known limitations
 
-- **No database** (by design, single-user app): login rate-limiting and the
-  "one active stream per session" enforcement are in-memory, per-process.
-  This is why Cloud Run's `max_instance_count` is pinned to 1 — reliable
+- **In-memory, per-process state**: login rate-limiting and the "one active
+  stream per session" enforcement live in memory, not Firestore. This is
+  why Cloud Run's `max_instance_count` is pinned to 1 — reliable
   enforcement needs a single instance. Don't raise it without adding a
-  shared store first.
+  shared store (e.g. moving these into Firestore/Redis) first.
+- **Stream concurrency is per logged-in user, not account-wide**: all app
+  users share one underlying Xtream subscription. If your provider only
+  allows N concurrent connections, two different app users streaming at
+  once can still exceed that — the one-active-stream guard only dedupes a
+  single user's own multiple devices/tabs, not across different users.
 - **Sports detection** is heuristic (provider event-channel naming +
   XMLTV "now playing" + a loose team-name match against ESPN's public
   scoreboard). It won't be perfect for every provider/channel naming

@@ -23,6 +23,7 @@ locals {
     "compute.googleapis.com",
     "cloudscheduler.googleapis.com",
     "sts.googleapis.com",
+    "firestore.googleapis.com",
   ]
 }
 
@@ -118,6 +119,24 @@ resource "google_project_iam_member" "runtime_log_writer" {
 }
 
 # ---------------------------------------------------------------------------
+# Firestore — app users (roles) + admin-curated game-to-channel mappings.
+# ---------------------------------------------------------------------------
+resource "google_firestore_database" "app" {
+  project     = var.project_id
+  name        = "(default)"
+  location_id = var.region
+  type        = "FIRESTORE_NATIVE"
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_project_iam_member" "runtime_firestore_access" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.run_runtime.email}"
+}
+
+# ---------------------------------------------------------------------------
 # Cloud Run service (backend + built frontend, single image).
 # ---------------------------------------------------------------------------
 resource "google_cloud_run_v2_service" "app" {
@@ -158,6 +177,12 @@ resource "google_cloud_run_v2_service" "app" {
       }
       env {
         name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        # Explicit, rather than relying on metadata-server auto-detection —
+        # used by the Firestore client (users + game mappings).
+        name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
       }
 

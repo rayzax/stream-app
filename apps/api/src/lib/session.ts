@@ -1,7 +1,7 @@
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export interface SessionPayload {
-  sid: string;
+  uid: string; // Firestore user doc id
   exp: number;
 }
 
@@ -11,12 +11,15 @@ function sign(payloadB64: string, key: string): string {
   return createHmac('sha256', key).update(payloadB64).digest('base64url');
 }
 
-export function createSessionCookie(signingKey: string): { cookieValue: string; sessionId: string } {
-  const sid = randomUUID();
-  const payload: SessionPayload = { sid, exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS };
+// Deliberately does NOT embed role in the cookie — authGuard re-reads the
+// user's current role/disabled flag from Firestore on every request, so an
+// admin revoking a role or disabling a user takes effect immediately rather
+// than waiting out a 90-day-old cookie.
+export function createSessionCookie(signingKey: string, userId: string): { cookieValue: string } {
+  const payload: SessionPayload = { uid: userId, exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS };
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = sign(payloadB64, signingKey);
-  return { cookieValue: `${payloadB64}.${sig}`, sessionId: sid };
+  return { cookieValue: `${payloadB64}.${sig}` };
 }
 
 export function verifySessionCookie(cookieValue: string | undefined, signingKey: string): SessionPayload | null {
@@ -39,8 +42,8 @@ export function verifySessionCookie(cookieValue: string | undefined, signingKey:
   }
 }
 
-// Best-effort in-memory login rate limiter. Per-process only (see README
-// "known limitations") — acceptable for a single-user app on a service
+// Best-effort in-memory login rate limiter, keyed by IP. Per-process only
+// (see README "known limitations") — reliable because this service is
 // pinned to max_instance_count = 1.
 const attempts = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 15 * 60 * 1000;

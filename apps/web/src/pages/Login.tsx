@@ -4,6 +4,7 @@ import { login } from '../lib/api';
 
 export default function Login() {
   const navigate = useNavigate();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -13,11 +14,11 @@ export default function Login() {
     setSubmitting(true);
     setError(null);
     try {
-      await login(password);
+      await login(username, password);
       navigate('/', { replace: true });
     } catch (err) {
       const status = (err as { status?: number }).status;
-      setError(status === 429 ? 'Too many attempts. Try again later.' : 'Incorrect password.');
+      setError(status === 429 ? 'Too many attempts. Try again later.' : 'Incorrect username or password.');
     } finally {
       setSubmitting(false);
     }
@@ -33,20 +34,29 @@ export default function Login() {
         <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input
             className="field"
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoFocus
+            autoComplete="username"
+            required
+          />
+          <input
+            className="field"
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoFocus
             autoComplete="current-password"
             required
           />
           {error && <div className="login-error">{error}</div>}
-          <button className="btn" type="submit" disabled={submitting || !password}>
+          <button className="btn" type="submit" disabled={submitting || !username || !password}>
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-        <div className="login-footer">Single-user private access</div>
+        <div className="login-footer">Private access</div>
       </section>
     </div>
   );

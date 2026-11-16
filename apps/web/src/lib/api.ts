@@ -13,8 +13,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function login(password: string) {
-  return request<{ ok: true }>('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
+export interface CurrentUser {
+  id: string;
+  username: string;
+  role: 'admin' | 'user';
+}
+
+export function login(username: string, password: string) {
+  return request<{ ok: true; user: CurrentUser }>('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
 }
 
 export function logout() {
@@ -22,7 +28,54 @@ export function logout() {
 }
 
 export function checkSession() {
-  return request<{ ok: true }>('/api/session');
+  return request<{ ok: true; user: CurrentUser }>('/api/session');
+}
+
+// --- Admin -------------------------------------------------------------
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  role: 'admin' | 'user';
+  disabled: boolean;
+  createdAt: string;
+}
+
+export function adminListUsers() {
+  return request<{ users: AdminUser[] }>('/api/admin/users');
+}
+
+export function adminCreateUser(username: string, password: string, role: 'admin' | 'user') {
+  return request<{ user: AdminUser }>('/api/admin/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+}
+
+export function adminUpdateUser(id: string, patch: { role?: 'admin' | 'user'; disabled?: boolean; password?: string }) {
+  return request<{ ok: true }>(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+}
+
+export function adminDeleteUser(id: string) {
+  return request<{ ok: true }>(`/api/admin/users/${id}`, { method: 'DELETE' });
+}
+
+export interface GameMapping {
+  id: string;
+  league: string;
+  label: string;
+  streamId: number;
+  createdBy: string;
+  updatedAt: string;
+}
+
+export function adminListMappings() {
+  return request<{ mappings: GameMapping[] }>('/api/admin/mappings');
+}
+
+export function adminCreateMapping(league: string, label: string, streamId: number) {
+  return request<{ mapping: GameMapping }>('/api/admin/mappings', { method: 'POST', body: JSON.stringify({ league, label, streamId }) });
+}
+
+export function adminDeleteMapping(id: string) {
+  return request<{ ok: true }>(`/api/admin/mappings/${id}`, { method: 'DELETE' });
 }
 
 export interface SportsEntry {
@@ -34,6 +87,7 @@ export interface SportsEntry {
   homeScore?: string;
   awayScore?: string;
   clock?: string;
+  mappingId?: string;
 }
 
 export function getSports() {

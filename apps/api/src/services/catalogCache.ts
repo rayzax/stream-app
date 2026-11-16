@@ -3,6 +3,7 @@ import type { AppConfig } from '../config.js';
 import { XtreamClient, type XtreamCategory, type XtreamLiveStream, type XtreamVodStream } from './xtreamClient.js';
 import { parseXmltv, nowNext, type EpgProgramme } from './epg.js';
 import { fetchLiveGamesByLeague, SPORTS_LEAGUES, type LiveGame } from './espnScoreboard.js';
+import { GameMappingStore, type GameMapping } from './gameMappings.js';
 
 export interface ChannelView {
   streamId: number;
@@ -32,6 +33,8 @@ export interface SportsEntry {
   homeScore?: string;
   awayScore?: string;
   clock?: string;
+  /** Set when this entry was pinned/overridden by an admin game mapping. */
+  mappingId?: string;
 }
 
 interface CachedSnapshot {
@@ -79,8 +82,10 @@ export class CatalogCache {
   private vodStreams: XtreamVodStream[] = [];
   private epg: EpgProgramme[] = [];
   private liveGamesByLeague: Record<string, LiveGame[]> = {};
+  private gameMappings: GameMapping[] = [];
   private lastFullRefresh: Date | null = null;
   private storage?: Storage;
+  private mappingStore = new GameMappingStore();
 
   constructor(
     private config: AppConfig,
@@ -114,9 +119,17 @@ export class CatalogCache {
     }
   }
 
-  /** Cheap refresh for the Sports tab: re-pulls ESPN scores against the already-cached channel/EPG data. */
+  /** Cheap refresh for the Sports tab: re-pulls ESPN scores + admin game mappings. */
   async refreshSportsOnly(): Promise<void> {
-    this.liveGamesByLeague = await fetchLiveGamesByLeague();
+    const [liveGamesByLeague, gameMappings] = await Promise.all([
+      fetchLiveGamesByLeague(),
+      this.mappingStore.list().catch((err) => {
+        console.error('Failed to load game mappings', err);
+        return this.gameMappings; // keep last-known on transient Firestore error
+      }),
+    ]);
+    this.liveGamesByLeague = liveGamesByLeague;
+    this.gameMappings = gameMappings;
   }
 
   private applySnapshot(snapshot: CachedSnapshot): void {
@@ -248,6 +261,28 @@ export class CatalogCache {
         awayScore: liveGame?.awayScore,
         clock: liveGame?.clock,
       });
+    }
+
+    // Admin-curated mappings take precedence over the heuristic guess for
+    // that exact channel, and are added even when heuristics missed the
+    // game entirely (e.g. a channel name the auto-detection can't parse).
+    for (const mapping of this.gameMappings) {
+      const bucket = result[mapping.league] ?? (result[mapping.league] = []);
+      const atMatch = /^(.+?)\s+at\s+(.+)$/i.exec(mapping.label);
+      const existingIndex = bucket.findIndex((e) => e.streamId === mapping.streamId);
+      const overlay: SportsEntry = {
+        streamId: mapping.streamId,
+        name: mapping.label,
+        league: mapping.league,
+        awayTeam: atMatch?.[1]?.trim(),
+        homeTeam: atMatch?.[2]?.trim(),
+        mappingId: mapping.id,
+      };
+      if (existingIndex >= 0) {
+        bucket[existingIndex] = { ...bucket[existingIndex], ...overlay };
+      } else {
+        bucket.unshift(overlay);
+      }
     }
 
     return result;

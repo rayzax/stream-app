@@ -8,6 +8,7 @@ const TV = lazy(() => import('./pages/TV'));
 const Movies = lazy(() => import('./pages/Movies'));
 const Search = lazy(() => import('./pages/Search'));
 const Player = lazy(() => import('./pages/Player'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
               <Route path="/movies" element={<Movies />} />
               <Route path="/search" element={<Search />} />
               <Route path="/player/:type/:id" element={<Player />} />
+              <Route path="/admin" element={<Admin />} />
             </Route>
           </Routes>
         </Suspense>

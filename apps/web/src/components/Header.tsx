@@ -1,7 +1,8 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { SearchIcon, UserIcon } from './icons';
+import { SearchIcon, UserIcon, ShieldIcon } from './icons';
 import { logout } from '../lib/api';
+import { useCurrentUser } from '../lib/AuthContext';
 
 const TABS = [
   { to: '/', label: 'Sports' },
@@ -11,6 +12,7 @@ const TABS = [
 
 export default function Header() {
   const navigate = useNavigate();
+  const user = useCurrentUser();
   const [q, setQ] = useState('');
 
   function submitSearch(e: React.FormEvent) {
@@ -51,6 +53,15 @@ export default function Header() {
       <button className="header-search-btn" aria-label="Search" onClick={() => navigate('/search')}>
         <SearchIcon />
       </button>
+      {user.role === 'admin' && (
+        <button
+          onClick={() => navigate('/admin')}
+          aria-label="Admin portal"
+          style={{ width: 44, height: 44, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)', marginLeft: 4 }}
+        >
+          <ShieldIcon />
+        </button>
+      )}
       <button
         onClick={handleLogout}
         aria-label="Log out"

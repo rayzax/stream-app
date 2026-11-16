@@ -49,8 +49,30 @@ export function parseXmltv(xml: string): EpgProgramme[] {
     .filter((p): p is EpgProgramme => p !== null);
 }
 
-export function nowNext(programmes: EpgProgramme[], channelId: string, at: Date = new Date()) {
-  const forChannel = programmes.filter((p) => p.channelId === channelId).sort((a, b) => a.start.getTime() - b.start.getTime());
+/**
+ * Groups + sorts programmes by channel ONCE. Doing this once per catalog
+ * refresh instead of filtering/sorting the full (potentially huge) EPG for
+ * every channel on every request is the difference between O(channels ×
+ * programmes) per request and O(programmes) once — the former was blocking
+ * Node's event loop long enough to stall unrelated requests (e.g. login)
+ * while 12k+ channels' worth of "now/next" got recomputed synchronously.
+ */
+export function buildEpgIndex(programmes: EpgProgramme[]): Map<string, EpgProgramme[]> {
+  const byChannel = new Map<string, EpgProgramme[]>();
+  for (const p of programmes) {
+    const list = byChannel.get(p.channelId);
+    if (list) list.push(p);
+    else byChannel.set(p.channelId, [p]);
+  }
+  for (const list of byChannel.values()) {
+    list.sort((a, b) => a.start.getTime() - b.start.getTime());
+  }
+  return byChannel;
+}
+
+export function nowNextFromIndex(index: Map<string, EpgProgramme[]>, channelId: string, at: Date = new Date()) {
+  const forChannel = index.get(channelId);
+  if (!forChannel) return { now: undefined, next: undefined };
   const now = forChannel.find((p) => p.start <= at && at < p.stop);
   const next = forChannel.find((p) => p.start > at);
   return { now, next };

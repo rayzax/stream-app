@@ -1,9 +1,20 @@
 import { Storage } from '@google-cloud/storage';
 import type { AppConfig } from '../config.js';
 import { XtreamClient, type XtreamCategory, type XtreamLiveStream, type XtreamVodStream } from './xtreamClient.js';
-import { parseXmltv, nowNext, type EpgProgramme } from './epg.js';
+import { parseXmltv, buildEpgIndex, nowNextFromIndex, type EpgProgramme } from './epg.js';
 import { fetchLiveGamesByLeague, SPORTS_LEAGUES, type LiveGame } from './espnScoreboard.js';
 import { GameMappingStore, type GameMapping } from './gameMappings.js';
+
+function groupBy<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const key = keyFn(item);
+    const list = map.get(key);
+    if (list) list.push(item);
+    else map.set(key, [item]);
+  }
+  return map;
+}
 
 export interface ChannelView {
   streamId: number;
@@ -80,7 +91,16 @@ export class CatalogCache {
   private liveStreams: XtreamLiveStream[] = [];
   private vodCategories: XtreamCategory[] = [];
   private vodStreams: XtreamVodStream[] = [];
-  private epg: EpgProgramme[] = [];
+  // Pre-grouped/indexed derived structures — built ONCE per refresh instead
+  // of being recomputed by scanning the full arrays on every request. With
+  // a catalog this size (12k+ channels), the per-request versions of these
+  // were blocking Node's single event loop for seconds at a time, stalling
+  // unrelated requests (login included) while they ran.
+  private liveCategoriesById = new Map<string, XtreamCategory>();
+  private vodCategoriesById = new Map<string, XtreamCategory>();
+  private liveStreamsByCategory = new Map<string, XtreamLiveStream[]>();
+  private vodStreamsByCategory = new Map<string, XtreamVodStream[]>();
+  private epgIndex = new Map<string, EpgProgramme[]>();
   // Last-known-good RAW (pre-filter) values, so a partial refreshFull()
   // failure on one endpoint can fall back per-piece instead of all-or-nothing.
   private rawLiveCategories: XtreamCategory[] = [];
@@ -167,17 +187,28 @@ export class CatalogCache {
   }
 
   private applySnapshot(snapshot: CachedSnapshot): void {
-    const usFilter = (c: XtreamCategory) => matchesUsFilter(c.category_name, this.config.usFilterPatterns);
-    const liveCategories = snapshot.liveCategories.filter(usFilter);
+    // Live TV uses an include-list (this provider tags US channels with a
+    // reliable "US|" prefix). VOD categories have no such tag — they're
+    // named by streaming service with no region marker at all, or an
+    // explicit "<code> - " prefix for foreign-language catalogs — so VOD
+    // uses an exclude-list instead; see parseVodExcludePatterns().
+    const liveFilter = (c: XtreamCategory) => matchesUsFilter(c.category_name, this.config.usFilterPatterns);
+    const vodFilter = (c: XtreamCategory) => !matchesUsFilter(c.category_name, this.config.vodExcludePatterns);
+    const liveCategories = snapshot.liveCategories.filter(liveFilter);
     const liveCategoryIds = new Set(liveCategories.map((c) => c.category_id));
-    const vodCategories = snapshot.vodCategories.filter(usFilter);
+    const vodCategories = snapshot.vodCategories.filter(vodFilter);
     const vodCategoryIds = new Set(vodCategories.map((c) => c.category_id));
 
     this.liveCategories = liveCategories;
     this.liveStreams = snapshot.liveStreams.filter((s) => liveCategoryIds.has(s.category_id));
     this.vodCategories = vodCategories;
     this.vodStreams = snapshot.vodStreams.filter((s) => vodCategoryIds.has(s.category_id));
-    this.epg = parseXmltv(snapshot.xmltv);
+
+    this.liveCategoriesById = new Map(liveCategories.map((c) => [c.category_id, c]));
+    this.vodCategoriesById = new Map(vodCategories.map((c) => [c.category_id, c]));
+    this.liveStreamsByCategory = groupBy(this.liveStreams, (s) => s.category_id);
+    this.vodStreamsByCategory = groupBy(this.vodStreams, (s) => s.category_id);
+    this.epgIndex = buildEpgIndex(parseXmltv(snapshot.xmltv));
 
     this.rawLiveCategories = snapshot.liveCategories;
     this.rawLiveStreams = snapshot.liveStreams;
@@ -217,20 +248,19 @@ export class CatalogCache {
 
   channelsForCategory(categoryId: string): ChannelView[] {
     const now = new Date();
-    return this.liveStreams
-      .filter((s) => s.category_id === categoryId)
-      .map((s) => {
-        const channelId = s.epg_channel_id ?? '';
-        const { now: n, next } = nowNext(this.epg, channelId, now);
-        return {
-          streamId: s.stream_id,
-          name: s.name,
-          logo: s.stream_icon,
-          categoryName: this.liveCategories.find((c) => c.category_id === categoryId)?.category_name ?? '',
-          now: n ? { title: n.title, start: n.start.toISOString(), stop: n.stop.toISOString() } : undefined,
-          next: next ? { title: next.title, start: next.start.toISOString(), stop: next.stop.toISOString() } : undefined,
-        };
-      });
+    const categoryName = this.liveCategoriesById.get(categoryId)?.category_name ?? '';
+    return (this.liveStreamsByCategory.get(categoryId) ?? []).map((s) => {
+      const channelId = s.epg_channel_id ?? '';
+      const { now: n, next } = nowNextFromIndex(this.epgIndex, channelId, now);
+      return {
+        streamId: s.stream_id,
+        name: s.name,
+        logo: s.stream_icon,
+        categoryName,
+        now: n ? { title: n.title, start: n.start.toISOString(), stop: n.stop.toISOString() } : undefined,
+        next: next ? { title: next.title, start: next.start.toISOString(), stop: next.stop.toISOString() } : undefined,
+      };
+    });
   }
 
   categoriesMovies(): XtreamCategory[] {
@@ -238,17 +268,16 @@ export class CatalogCache {
   }
 
   moviesForCategory(categoryId: string): MovieView[] {
-    return this.vodStreams
-      .filter((s) => s.category_id === categoryId)
-      .map((s) => ({
-        streamId: s.stream_id,
-        name: s.name,
-        logo: s.stream_icon,
-        categoryName: this.vodCategories.find((c) => c.category_id === categoryId)?.category_name ?? '',
-        rating: s.rating,
-        containerExtension: s.container_extension,
-        added: Number(s.added) || 0,
-      }));
+    const categoryName = this.vodCategoriesById.get(categoryId)?.category_name ?? '';
+    return (this.vodStreamsByCategory.get(categoryId) ?? []).map((s) => ({
+      streamId: s.stream_id,
+      name: s.name,
+      logo: s.stream_icon,
+      categoryName,
+      rating: s.rating,
+      containerExtension: s.container_extension,
+      added: Number(s.added) || 0,
+    }));
   }
 
   async movieDetails(vodId: number) {
@@ -264,7 +293,7 @@ export class CatalogCache {
     for (const stream of this.liveStreams) {
       const eventMatch = EVENT_CHANNEL_RE.exec(stream.name);
       const channelId = stream.epg_channel_id ?? '';
-      const { now: nowProgramme } = nowNext(this.epg, channelId, now);
+      const { now: nowProgramme } = nowNextFromIndex(this.epgIndex, channelId, now);
 
       let league: string | undefined;
       let teamA: string | undefined;
@@ -337,7 +366,7 @@ export class CatalogCache {
         type: 'live' as const,
         streamId: s.stream_id,
         name: s.name,
-        categoryName: this.liveCategories.find((c) => c.category_id === s.category_id)?.category_name ?? '',
+        categoryName: this.liveCategoriesById.get(s.category_id)?.category_name ?? '',
       }));
     const vodMatches = this.vodStreams
       .filter((s) => s.name.toLowerCase().includes(q))
@@ -345,7 +374,7 @@ export class CatalogCache {
         type: 'vod' as const,
         streamId: s.stream_id,
         name: s.name,
-        categoryName: this.vodCategories.find((c) => c.category_id === s.category_id)?.category_name ?? '',
+        categoryName: this.vodCategoriesById.get(s.category_id)?.category_name ?? '',
       }));
     return [...liveMatches, ...vodMatches];
   }

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import type Hls from 'hls.js';
 import type mpegts from 'mpegts.js';
 import { PlayIcon, PauseIcon, VolumeIcon, PipIcon, FullscreenIcon } from './icons';
 
@@ -15,7 +14,6 @@ function isIos(): boolean {
 
 export default function VideoPlayer({ src, isLive, via }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const hlsRef = useRef<Hls | null>(null);
   const mpegtsRef = useRef<ReturnType<typeof mpegts.createPlayer> | null>(null);
   const [started, setStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -28,57 +26,43 @@ export default function VideoPlayer({ src, isLive, via }: VideoPlayerProps) {
     let cancelled = false;
 
     async function attach() {
-      const nativeHls = video!.canPlayType('application/vnd.apple.mpegurl');
-      if (nativeHls) {
-        video!.src = src;
-        video!.play().catch(() => {});
-        return;
-      }
-
-      // hls.js / mpegts.js are only fetched once playback actually starts —
-      // keeps them out of the initial bundle (cellular-friendly).
-      const { default: Hls } = await import('hls.js');
-      if (cancelled) return;
-
-      if (Hls.isSupported()) {
-        const hls = new Hls({ lowLatencyMode: isLive });
-        hlsRef.current = hls;
-        hls.loadSource(src);
-        hls.attachMedia(video!);
-        hls.on(Hls.Events.ERROR, async (_evt, data) => {
-          if (data.fatal) {
-            hls.destroy();
-            hlsRef.current = null;
-            const { default: mpegts } = await import('mpegts.js');
-            if (mpegts.isSupported()) {
-              const player = mpegts.createPlayer({ type: 'mse', isLive, url: src });
-              mpegtsRef.current = player;
-              player.attachMediaElement(video!);
-              player.load();
-              player.play();
-            }
-          }
-        });
-      } else {
+      if (isLive) {
+        // Our backend serves live channels as a continuous raw MPEG-TS
+        // stream, not real segmented HLS (this provider's .m3u8 "HLS"
+        // output is a non-functional wrapper — see xtreamUpstream.ts).
+        // mpegts.js (MSE) is what actually plays continuous TS-over-HTTP.
         const { default: mpegts } = await import('mpegts.js');
         if (cancelled) return;
         if (mpegts.isSupported()) {
-          const player = mpegts.createPlayer({ type: 'mse', isLive, url: src });
+          const player = mpegts.createPlayer({ type: 'mse', isLive: true, url: src });
           mpegtsRef.current = player;
           player.attachMediaElement(video!);
           player.load();
+          try {
+            void player.play();
+          } catch {
+            /* ignore — e.g. autoplay restrictions; user already tapped play */
+          }
         } else {
+          // No MSE support (some older iOS Safari versions) — best-effort
+          // native playback; Safari has some native MPEG-TS support.
           video!.src = src;
+          video!.play().catch(() => {});
         }
+        return;
       }
+
+      // VOD: the backend passes the real movie file straight through with
+      // Range support (not HLS either) — native <video> playback just
+      // works for anything the browser's codec support covers (MKV titles
+      // are flagged elsewhere as possibly unplayable).
+      video!.src = src;
       video!.play().catch(() => {});
     }
     attach();
 
     return () => {
       cancelled = true;
-      hlsRef.current?.destroy();
-      hlsRef.current = null;
       mpegtsRef.current?.destroy();
       mpegtsRef.current = null;
     };

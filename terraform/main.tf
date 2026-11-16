@@ -165,8 +165,13 @@ resource "google_cloud_run_v2_service" "app" {
 
       resources {
         limits = {
-          cpu    = "1"
-          memory = "512Mi"
+          cpu = "2"
+          # The full Xtream catalog (live+VOD streams, categories) plus a
+          # parsed XMLTV guide for this provider's size genuinely uses
+          # 500+MB — 512Mi was crash-looping the container (OOM/SIGABRT)
+          # once requests were allowed to actually complete instead of
+          # timing out early. Generous headroom here on purpose.
+          memory = "2Gi"
         }
         # The catalog refresh (and sports/ESPN polling) runs on a background
         # setInterval, independent of incoming requests. Cloud Run's default

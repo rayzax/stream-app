@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { SearchIcon, UserIcon, ShieldIcon } from './icons';
+import { Button } from './ui/button';
 import { logout } from '../lib/api';
 import { useCurrentUser } from '../lib/AuthContext';
 
@@ -30,12 +31,12 @@ export default function Header() {
 
   return (
     <header className="app-header">
-      <NavLink to="/" className="brand">
+      <NavLink to="/" className="brand" viewTransition>
         Stream
       </NavLink>
       <nav className="tabs">
         {TABS.map((t) => (
-          <NavLink key={t.to} to={t.to} end className="tab">
+          <NavLink key={t.to} to={t.to} end className="tab" viewTransition>
             {t.label}
           </NavLink>
         ))}
@@ -54,21 +55,13 @@ export default function Header() {
         <SearchIcon />
       </button>
       {user.role === 'admin' && (
-        <button
-          onClick={() => navigate('/admin')}
-          aria-label="Admin portal"
-          style={{ width: 44, height: 44, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)', marginLeft: 4 }}
-        >
+        <Button variant="ghost" size="icon" className="ml-1 rounded-full" aria-label="Admin portal" onClick={() => navigate('/admin')}>
           <ShieldIcon />
-        </button>
+        </Button>
       )}
-      <button
-        onClick={handleLogout}
-        aria-label="Log out"
-        style={{ width: 44, height: 44, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)', marginLeft: 4 }}
-      >
+      <Button variant="ghost" size="icon" className="ml-1 rounded-full" aria-label="Log out" onClick={handleLogout}>
         <UserIcon />
-      </button>
+      </Button>
     </header>
   );
 }

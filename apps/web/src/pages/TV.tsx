@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTv, type ChannelView, type TvCategory } from '../lib/api';
+import { Skeleton } from '../components/ui/skeleton';
 
 function progressPct(now?: { start: string; stop: string }): number {
   if (!now) return 0;
@@ -62,10 +63,38 @@ export default function TV() {
   }, [activeCategory, filter]);
 
   if (error) return <div className="error-state">Couldn't load the channel guide.</div>;
-  if (!categories) return <div className="loading">Loading channels…</div>;
+  if (!categories) {
+    return (
+      <div className="tv-layout w-full">
+        <div className="flex w-full flex-col gap-4">
+          <Skeleton className="h-10 w-full" />
+          <div className="grid grid--tiles">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 w-full" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const categoryLabel = (c: TvCategory) => c.categoryName.replace(/^US\|\s*/i, '');
 
   return (
     <div className="tv-layout">
+      {/* Mobile: sticky blurred chip row instead of a tall vertical list. */}
+      <div className="tv-chip-row md:hidden">
+        {categories.map((c) => (
+          <button
+            key={c.categoryId}
+            className="chip"
+            aria-pressed={c.categoryId === selected}
+            onClick={() => setSelected(c.categoryId)}
+          >
+            {categoryLabel(c)}
+          </button>
+        ))}
+      </div>
       <aside className="tv-sidebar">
         <div className="tv-sidebar-label">Categories</div>
         {categories.map((c) => (
@@ -79,7 +108,7 @@ export default function TV() {
               setSelected(c.categoryId);
             }}
           >
-            {c.categoryName.replace(/^US\|\s*/i, '')}
+            {categoryLabel(c)}
           </a>
         ))}
       </aside>

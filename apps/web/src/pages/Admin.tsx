@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useCurrentUser } from '../lib/AuthContext';
 import {
   adminListUsers,
@@ -18,101 +19,141 @@ import {
   type ChannelCategorySummary,
   type ChannelSummary,
 } from '../lib/api';
-import { TrashIcon, PlusIcon } from '../components/icons';
+import { TrashIcon, PlusIcon, UserIcon, ShieldIcon } from '../components/icons';
+import { Button } from '../components/ui/button';
+import { Skeleton } from '../components/ui/skeleton';
 
 const LEAGUES = ['Live NFL', 'Live CFB', 'Live NBA', 'Live CBB', 'Live MLB', 'Live NHL', 'Live Soccer', 'Live UFC/Boxing'];
 
+/** A small local tab switcher, same visual language as the app's own nav tabs. */
+function SectionTabs({ value, onChange }: { value: 'users' | 'mappings'; onChange: (v: 'users' | 'mappings') => void }) {
+  return (
+    <div className="flex gap-6 border-b border-border">
+      {(
+        [
+          ['users', 'Users', UserIcon],
+          ['mappings', 'Game mappings', ShieldIcon],
+        ] as const
+      ).map(([key, label, Icon]) => (
+        <button
+          key={key}
+          className="tab"
+          aria-current={value === key ? 'page' : undefined}
+          onClick={() => onChange(key)}
+        >
+          <Icon className="mr-1.5 inline-block" width={16} height={16} />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function UserRowSkeleton() {
+  return (
+    <div className="card card--compact flex-row items-center gap-3">
+      <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+      <div className="flex flex-1 flex-col gap-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-48" />
+      </div>
+    </div>
+  );
+}
+
 function UsersSection({ currentUserId }: { currentUserId: string }) {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
   const [creating, setCreating] = useState(false);
 
   function reload() {
-    adminListUsers().then((r) => setUsers(r.users)).catch(() => setError('Failed to load users.'));
+    adminListUsers().then((r) => setUsers(r.users)).catch(() => toast.error('Failed to load users.'));
   }
   useEffect(reload, []);
 
   async function createUser(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     setCreating(true);
     try {
       await adminCreateUser(newUsername, newPassword, newRole);
+      toast.success(`User "${newUsername}" created.`);
       setNewUsername('');
       setNewPassword('');
       setNewRole('user');
       reload();
     } catch (err) {
       const status = (err as { status?: number }).status;
-      setError(status === 409 ? 'That username is already taken.' : 'Could not create user (password must be 8+ characters).');
+      toast.error(status === 409 ? 'That username is already taken.' : 'Could not create user (password must be 8+ characters).');
     } finally {
       setCreating(false);
     }
   }
 
   async function toggleRole(u: AdminUser) {
-    setError(null);
     try {
       await adminUpdateUser(u.id, { role: u.role === 'admin' ? 'user' : 'admin' });
       reload();
     } catch {
-      setError('Could not change that user’s role (at least one enabled admin is required).');
+      toast.error('Could not change that user’s role (at least one enabled admin is required).');
     }
   }
 
   async function toggleDisabled(u: AdminUser) {
-    setError(null);
     try {
       await adminUpdateUser(u.id, { disabled: !u.disabled });
       reload();
     } catch {
-      setError('Could not update that user (at least one enabled admin is required).');
+      toast.error('Could not update that user (at least one enabled admin is required).');
     }
   }
 
   async function removeUser(u: AdminUser) {
     if (!confirm(`Delete user "${u.username}"? This can't be undone.`)) return;
-    setError(null);
     try {
       await adminDeleteUser(u.id);
+      toast.success(`User "${u.username}" deleted.`);
       reload();
     } catch {
-      setError('Could not delete that user (at least one enabled admin is required).');
+      toast.error('Could not delete that user (at least one enabled admin is required).');
     }
   }
 
   return (
-    <section className="league-section">
-      <h2 className="league-heading">Users</h2>
-      {error && <div className="login-error">{error}</div>}
-
-      <form onSubmit={createUser} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input className="field" style={{ maxWidth: 200 }} placeholder="Username" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} required />
-        <input className="field" style={{ maxWidth: 200 }} type="password" placeholder="Password (8+ chars)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
-        <select className="select" style={{ width: 'auto' }} value={newRole} onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}>
+    <div className="flex flex-col gap-5">
+      <form onSubmit={createUser} className="card flex flex-row flex-wrap items-center gap-3">
+        <input className="field max-w-[200px]" placeholder="Username" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} required />
+        <input className="field max-w-[200px]" type="password" placeholder="Password (8+ chars)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+        <select className="select w-auto" value={newRole} onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}>
           <option value="user">User</option>
           <option value="admin">Admin</option>
         </select>
-        <button className="btn" type="submit" disabled={creating}>
-          <PlusIcon /> Add user
-        </button>
+        <Button type="submit" disabled={creating}>
+          <PlusIcon width={16} height={16} /> Add user
+        </Button>
       </form>
 
       {!users ? (
-        <div className="loading">Loading users…</div>
+        <div className="flex flex-col gap-2">
+          <UserRowSkeleton />
+          <UserRowSkeleton />
+        </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="flex flex-col gap-2">
           {users.map((u) => (
-            <div key={u.id} className="row" style={{ cursor: 'default' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div key={u.id} className="card card--compact flex-row items-center">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-3">
+                <UserIcon width={18} height={18} className="text-muted" />
+              </div>
+              <div className="min-w-0 flex-1">
                 <div className="row-name">
                   {u.username}
                   {u.id === currentUserId && <span className="row-meta"> (you)</span>}
                 </div>
-                <div className="row-meta">{u.disabled ? 'Disabled' : 'Active'} · joined {new Date(u.createdAt).toLocaleDateString()}</div>
+                <div className="row-meta">
+                  {u.disabled ? 'Disabled' : 'Active'} · joined {new Date(u.createdAt).toLocaleDateString()}
+                </div>
               </div>
               <span className="tag">{u.role}</span>
               <button className="chip" aria-pressed={false} onClick={() => toggleRole(u)}>
@@ -121,14 +162,14 @@ function UsersSection({ currentUserId }: { currentUserId: string }) {
               <button className="chip" aria-pressed={u.disabled} onClick={() => toggleDisabled(u)}>
                 {u.disabled ? 'Enable' : 'Disable'}
               </button>
-              <button className="ctl" aria-label="Delete user" onClick={() => removeUser(u)}>
-                <TrashIcon />
-              </button>
+              <Button variant="ghost" size="icon" aria-label="Delete user" onClick={() => removeUser(u)}>
+                <TrashIcon width={16} height={16} />
+              </Button>
             </div>
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -155,17 +196,17 @@ function GamePicker({ channel, unmapped, onPick, onCancel }: {
   const anyGames = orderedLeagues.some((l) => (unmapped[l] ?? []).length > 0);
 
   return (
-    <div className="card" style={{ marginTop: 8 }}>
+    <div className="card--live card mt-2">
       <div className="row-name">Map "{channel.name}" to which live game?</div>
       {!anyGames && <div className="empty-state">No unmapped live games right now — check back when something's live.</div>}
       {orderedLeagues.map((l) => {
         const games = unmapped[l] ?? [];
         if (games.length === 0) return null;
         return (
-          <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div key={l} className="flex flex-col gap-1">
             <div className="tile-label">{l.replace('Live ', '')}</div>
             {games.map((g) => (
-              <button key={`${g.homeTeam}-${g.awayTeam}`} type="button" className="row" style={{ cursor: 'pointer', minHeight: 44 }} onClick={() => onPick(l, g)}>
+              <button key={`${g.homeTeam}-${g.awayTeam}`} type="button" className="row min-h-11 cursor-pointer" onClick={() => onPick(l, g)}>
                 <span className="row-name">
                   {g.awayTeam} at {g.homeTeam}
                 </span>
@@ -193,17 +234,16 @@ function MappingsSection() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [channelFilter, setChannelFilter] = useState('');
   const [pendingChannel, setPendingChannel] = useState<PendingChannel | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   function reload() {
-    adminListMappings().then((r) => setMappings(r.mappings)).catch(() => setError('Failed to load mappings.'));
+    adminListMappings().then((r) => setMappings(r.mappings)).catch(() => toast.error('Failed to load mappings.'));
     adminListUnmappedGames().then((r) => setUnmapped(r.leagues)).catch(() => {});
   }
   useEffect(reload, []);
   useEffect(() => {
     adminListChannelCategories()
       .then((r) => setCategories(r.categories))
-      .catch(() => setError('Failed to load channel categories.'));
+      .catch(() => toast.error('Failed to load channel categories.'));
   }, []);
 
   const unmappedCount = useMemo(() => Object.values(unmapped ?? {}).reduce((sum, g) => sum + g.length, 0), [unmapped]);
@@ -220,20 +260,20 @@ function MappingsSection() {
         const res = await adminListChannelsInCategory(categoryId);
         setChannelsByCategory((prev) => ({ ...prev, [categoryId]: res.channels }));
       } catch {
-        setError('Failed to load channels for that category.');
+        toast.error('Failed to load channels for that category.');
       }
     }
   }
 
   async function pickGame(league: string, game: LiveGame) {
     if (!pendingChannel) return;
-    setError(null);
     try {
       await adminCreateMapping(league, `${game.awayTeam} at ${game.homeTeam}`, pendingChannel.streamId);
+      toast.success(`Mapped to ${game.awayTeam} at ${game.homeTeam}.`);
       setPendingChannel(null);
       reload();
     } catch {
-      setError('Could not save that mapping.');
+      toast.error('Could not save that mapping.');
     }
   }
 
@@ -249,105 +289,116 @@ function MappingsSection() {
     : expandedChannels;
 
   return (
-    <section className="league-section">
-      <h2 className="league-heading">Game → channel mappings</h2>
-      <div className="empty-state">
-        {unmapped === null
-          ? 'Checking for live games without a mapped channel…'
-          : unmappedCount === 0
-            ? 'No unmapped live games right now.'
-            : `${unmappedCount} live game${unmappedCount === 1 ? '' : 's'} without a mapped channel. Expand the matching PPV category below (e.g. "US| NFL PPV"), find the channel, and map it.`}
+    <div className="flex flex-col gap-6">
+      <div className={unmappedCount > 0 ? 'card card--live' : 'card'}>
+        {unmapped === null ? (
+          <Skeleton className="h-5 w-64" />
+        ) : unmappedCount === 0 ? (
+          <span className="text-muted">No unmapped live games right now.</span>
+        ) : (
+          <span>
+            <span className="pill mr-2 align-middle">{unmappedCount}</span>
+            live game{unmappedCount === 1 ? '' : 's'} without a mapped channel. Expand the matching PPV category below
+            (e.g. "US| NFL PPV"), find the channel, and map it.
+          </span>
+        )}
       </div>
-      {error && <div className="login-error">{error}</div>}
 
-      <input className="field" style={{ maxWidth: 320 }} placeholder="Filter categories, e.g. PPV" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} />
+      <section className="flex flex-col gap-3">
+        <h3 className="font-display text-lg font-bold">Browse channels</h3>
+        <input className="field max-w-[320px]" placeholder="Filter categories, e.g. PPV" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} />
 
-      {!categories ? (
-        <div className="loading">Loading categories…</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {visibleCategories.map((c) => (
-            <div key={c.categoryId}>
-              <a
-                href="#"
-                className="cat"
-                aria-current={expandedCategoryId === c.categoryId}
-                onClick={(e) => {
-                  e.preventDefault();
-                  toggleExpand(c.categoryId);
-                }}
-              >
-                {c.categoryName}
-              </a>
-              {expandedCategoryId === c.categoryId && (
-                <div style={{ paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                  <input
-                    className="field"
-                    style={{ maxWidth: 280 }}
-                    placeholder="Filter channels in this category"
-                    value={channelFilter}
-                    onChange={(e) => setChannelFilter(e.target.value)}
-                  />
-                  {expandedChannels.length === 0 ? (
-                    <div className="loading">Loading channels…</div>
-                  ) : (
-                    <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {filteredExpandedChannels.map((ch) => (
-                        <button
-                          key={ch.streamId}
-                          type="button"
-                          className="row"
-                          style={{ cursor: 'pointer', minHeight: 40 }}
-                          onClick={() => setPendingChannel({ streamId: ch.streamId, name: ch.name, categoryName: c.categoryName })}
-                        >
-                          <span className="row-meta" style={{ flexShrink: 0 }}>
-                            {ch.num}
-                          </span>
-                          <span className="row-name">{ch.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {pendingChannel && pendingChannel.categoryName === c.categoryName && unmapped && (
-                    <GamePicker channel={pendingChannel} unmapped={unmapped} onPick={pickGame} onCancel={() => setPendingChannel(null)} />
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <h3 className="league-heading" style={{ fontSize: 15 }}>
-        Current mappings
-      </h3>
-      {!mappings ? (
-        <div className="loading">Loading mappings…</div>
-      ) : mappings.length === 0 ? (
-        <div className="empty-state">No mappings yet.</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {mappings.map((m) => (
-            <div key={m.id} className="row" style={{ cursor: 'default' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="row-name">{m.label}</div>
-                <div className="row-meta">
-                  {m.league.replace('Live ', '')} · stream {m.streamId} · by {m.createdBy}
-                </div>
+        {!categories ? (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {visibleCategories.map((c) => (
+              <div key={c.categoryId}>
+                <a
+                  href="#"
+                  className="cat"
+                  aria-current={expandedCategoryId === c.categoryId}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleExpand(c.categoryId);
+                  }}
+                >
+                  {c.categoryName}
+                </a>
+                {expandedCategoryId === c.categoryId && (
+                  <div className="mt-1 flex flex-col gap-1 pl-4">
+                    <input
+                      className="field max-w-[280px]"
+                      placeholder="Filter channels in this category"
+                      value={channelFilter}
+                      onChange={(e) => setChannelFilter(e.target.value)}
+                    />
+                    {expandedChannels.length === 0 ? (
+                      <div className="flex flex-col gap-1 pt-1">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    ) : (
+                      <div className="flex max-h-[280px] flex-col gap-1 overflow-y-auto">
+                        {filteredExpandedChannels.map((ch) => (
+                          <button
+                            key={ch.streamId}
+                            type="button"
+                            className="row min-h-10 cursor-pointer"
+                            onClick={() => setPendingChannel({ streamId: ch.streamId, name: ch.name, categoryName: c.categoryName })}
+                          >
+                            <span className="row-meta shrink-0">{ch.num}</span>
+                            <span className="row-name">{ch.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {pendingChannel && pendingChannel.categoryName === c.categoryName && unmapped && (
+                      <GamePicker channel={pendingChannel} unmapped={unmapped} onPick={pickGame} onCancel={() => setPendingChannel(null)} />
+                    )}
+                  </div>
+                )}
               </div>
-              <button className="ctl" aria-label="Delete mapping" onClick={() => removeMapping(m.id)}>
-                <TrashIcon />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h3 className="font-display text-lg font-bold">Current mappings</h3>
+        {!mappings ? (
+          <Skeleton className="h-14 w-full" />
+        ) : mappings.length === 0 ? (
+          <div className="empty-state">No mappings yet.</div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {mappings.map((m) => (
+              <div key={m.id} className="row cursor-default">
+                <div className="min-w-0 flex-1">
+                  <div className="row-name">{m.label}</div>
+                  <div className="row-meta">
+                    {m.league.replace('Live ', '')} · stream {m.streamId} · by {m.createdBy}
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" aria-label="Delete mapping" onClick={() => removeMapping(m.id)}>
+                  <TrashIcon width={16} height={16} />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 
 export default function Admin() {
   const user = useCurrentUser();
+  const [section, setSection] = useState<'users' | 'mappings'>('users');
   if (user.role !== 'admin') return <Navigate to="/" replace />;
 
   return (
@@ -355,8 +406,8 @@ export default function Admin() {
       <div className="page-head">
         <h1 className="page-title">Admin portal</h1>
       </div>
-      <UsersSection currentUserId={user.id} />
-      <MappingsSection />
+      <SectionTabs value={section} onChange={setSection} />
+      {section === 'users' ? <UsersSection currentUserId={user.id} /> : <MappingsSection />}
     </div>
   );
 }

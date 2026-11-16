@@ -51,7 +51,7 @@ export default function Login() {
             autoComplete="current-password"
             required
           />
-          {error && <div className="login-error">{error}</div>}
+          <div className="login-error">{error}</div>
           <button className="btn" type="submit" disabled={submitting || !username || !password}>
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>

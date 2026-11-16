@@ -11,7 +11,7 @@ export default function TabBar() {
   return (
     <nav className="tabbar">
       {TABS.map(({ to, label, Icon }) => (
-        <NavLink key={to} to={to} end>
+        <NavLink key={to} to={to} end viewTransition>
           <Icon />
           {label}
         </NavLink>

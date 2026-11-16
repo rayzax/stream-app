@@ -1,10 +1,18 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   plugins: [
     react(),
+    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
@@ -26,10 +34,10 @@ export default defineConfig({
       // custom src/sw.ts later if we need bespoke caching for video segments.
       strategies: 'generateSW',
       workbox: {
-        // Don't precache the on-demand player chunks (hls.js/mpegts.js) —
-        // they're already lazy-loaded; precaching them would undo the
+        // Don't precache the on-demand player chunk (mpegts.js) — it's
+        // already lazy-loaded; precaching it would undo the
         // cellular-friendly deferred load on first install.
-        globIgnores: ['**/hls-*.js', '**/mpegts-*.js'],
+        globIgnores: ['**/mpegts-*.js'],
       },
     }),
   ],

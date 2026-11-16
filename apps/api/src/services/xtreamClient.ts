@@ -53,7 +53,12 @@ export class XtreamClient {
   }
 
   private async getJson<T>(url: string): Promise<T> {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    // Some of these (get_live_streams, get_vod_streams) return multi-MB
+    // JSON for a full IPTV catalog — 15s was too tight in practice and
+    // silently discarded the entire catalog refresh. See also: refreshFull
+    // uses Promise.allSettled, not Promise.all, so one slow endpoint can no
+    // longer take the others down with it.
+    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
     if (!res.ok) {
       throw new Error(`Xtream API error ${res.status} for ${new URL(url).searchParams.get('action')}`);
     }
@@ -83,7 +88,7 @@ export class XtreamClient {
   async getXmltv(): Promise<string> {
     const base = this.opts.server.replace(/\/+$/, '');
     const params = new URLSearchParams({ username: this.opts.username, password: this.opts.password });
-    const res = await fetch(`${base}/xmltv.php?${params.toString()}`, { signal: AbortSignal.timeout(30_000) });
+    const res = await fetch(`${base}/xmltv.php?${params.toString()}`, { signal: AbortSignal.timeout(90_000) });
     if (!res.ok) throw new Error(`xmltv.php error ${res.status}`);
     return res.text();
   }

@@ -81,6 +81,13 @@ export class CatalogCache {
   private vodCategories: XtreamCategory[] = [];
   private vodStreams: XtreamVodStream[] = [];
   private epg: EpgProgramme[] = [];
+  // Last-known-good RAW (pre-filter) values, so a partial refreshFull()
+  // failure on one endpoint can fall back per-piece instead of all-or-nothing.
+  private rawLiveCategories: XtreamCategory[] = [];
+  private rawLiveStreams: XtreamLiveStream[] = [];
+  private rawVodCategories: XtreamCategory[] = [];
+  private rawVodStreams: XtreamVodStream[] = [];
+  private rawXmltv = '';
   private liveGamesByLeague: Record<string, LiveGame[]> = {};
   private gameMappings: GameMapping[] = [];
   private lastFullRefresh: Date | null = null;
@@ -100,21 +107,48 @@ export class CatalogCache {
     return this.lastFullRefresh;
   }
 
-  /** Fetches the full Xtream catalog + XMLTV, filters to US content, persists a last-good copy to GCS. */
+  /**
+   * Fetches the full Xtream catalog + XMLTV, filters to US content, persists
+   * a last-good copy to GCS. Uses allSettled, not all — a single slow/failed
+   * endpoint (XMLTV and the stream lists can be multi-MB for a large
+   * catalog) no longer discards everything else that *did* succeed. Each
+   * piece falls back to its last-known-good value on failure.
+   */
   async refreshFull(): Promise<void> {
-    try {
-      const [liveCategories, liveStreams, vodCategories, vodStreams, xmltv] = await Promise.all([
-        this.xtream.getLiveCategories(),
-        this.xtream.getLiveStreams(),
-        this.xtream.getVodCategories(),
-        this.xtream.getVodStreams(),
-        this.xtream.getXmltv(),
-      ]);
-      this.applySnapshot({ savedAt: new Date().toISOString(), liveCategories, liveStreams, vodCategories, vodStreams, xmltv });
+    const [liveCategoriesR, liveStreamsR, vodCategoriesR, vodStreamsR, xmltvR] = await Promise.allSettled([
+      this.xtream.getLiveCategories(),
+      this.xtream.getLiveStreams(),
+      this.xtream.getVodCategories(),
+      this.xtream.getVodStreams(),
+      this.xtream.getXmltv(),
+    ]);
+
+    const failures: string[] = [];
+    const pick = <T,>(label: string, result: PromiseSettledResult<T>, fallback: T): T => {
+      if (result.status === 'fulfilled') return result.value;
+      failures.push(label);
+      console.error(`Catalog refresh: ${label} failed, keeping last-known value`, result.reason);
+      return fallback;
+    };
+
+    const snapshot: CachedSnapshot = {
+      savedAt: new Date().toISOString(),
+      liveCategories: pick('get_live_categories', liveCategoriesR, this.rawLiveCategories),
+      liveStreams: pick('get_live_streams', liveStreamsR, this.rawLiveStreams),
+      vodCategories: pick('get_vod_categories', vodCategoriesR, this.rawVodCategories),
+      vodStreams: pick('get_vod_streams', vodStreamsR, this.rawVodStreams),
+      xmltv: pick('xmltv.php', xmltvR, this.rawXmltv),
+    };
+
+    const anySucceeded = failures.length < 5;
+    if (anySucceeded) {
+      this.applySnapshot(snapshot);
       this.lastFullRefresh = new Date();
-      await this.persistSnapshot({ savedAt: new Date().toISOString(), liveCategories, liveStreams, vodCategories, vodStreams, xmltv });
-    } catch (err) {
-      console.error('Catalog refresh failed, trying last-good GCS snapshot', err);
+      if (failures.length === 0) {
+        await this.persistSnapshot(snapshot);
+      }
+    } else {
+      console.error('Catalog refresh: every endpoint failed, trying last-good GCS snapshot');
       if (!this.lastFullRefresh) await this.loadFromGcs();
     }
   }
@@ -144,6 +178,12 @@ export class CatalogCache {
     this.vodCategories = vodCategories;
     this.vodStreams = snapshot.vodStreams.filter((s) => vodCategoryIds.has(s.category_id));
     this.epg = parseXmltv(snapshot.xmltv);
+
+    this.rawLiveCategories = snapshot.liveCategories;
+    this.rawLiveStreams = snapshot.liveStreams;
+    this.rawVodCategories = snapshot.vodCategories;
+    this.rawVodStreams = snapshot.vodStreams;
+    this.rawXmltv = snapshot.xmltv;
   }
 
   private async persistSnapshot(snapshot: CachedSnapshot): Promise<void> {

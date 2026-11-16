@@ -163,6 +163,22 @@ resource "google_cloud_run_v2_service" "app" {
         container_port = 8080
       }
 
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+        # The catalog refresh (and sports/ESPN polling) runs on a background
+        # setInterval, independent of incoming requests. Cloud Run's default
+        # (cpu_idle = true) throttles CPU between requests, which starves
+        # that background work — multi-MB catalog fetches were timing out
+        # because of this, not a real network issue. Needs CPU always
+        # allocated to work correctly; costs more while an instance is
+        # running, but min_instance_count = 0 still lets it scale to zero
+        # when truly idle, and the billing budget alert is the backstop.
+        cpu_idle = false
+      }
+
       env {
         name  = "STREAM_MODE"
         value = var.stream_mode

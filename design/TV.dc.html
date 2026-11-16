@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stream: TV</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D10;color:#E8EAED;font-family:Inter,system-ui,sans-serif}
+a{color:#3B82F6}a:hover{color:#60A5FA}
+h1,h2{font-family:"Space Grotesk",system-ui,sans-serif;margin:0;font-weight:700}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;color:#9AA3AD;text-decoration:none;font-weight:500;border-bottom:2px solid transparent}
+.tab[aria-current="page"]{color:#E8EAED;border-bottom-color:#3B82F6}
+.search,.field{box-sizing:border-box;min-height:44px;padding:0 14px;background:#1C2128;color:#E8EAED;border:1px solid #2A313A;border-radius:10px;font:inherit;width:100%}
+.search::placeholder,.field::placeholder{color:#9AA3AD}
+.cat{display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:10px;color:#9AA3AD;text-decoration:none;font-weight:500}
+.cat[aria-current="true"]{background:#1C2128;color:#E8EAED;box-shadow:inset 3px 0 0 #3B82F6}
+.tile{background:#14181D;border:1px solid #1C2128;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.track{height:6px;background:#1C2128;border-radius:999px;overflow:hidden}
+.fill{height:100%;background:#3B82F6}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.icon{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</helmet>
+<div style="box-sizing:border-box;min-height:1400px;background:#0B0D10">
+  <header style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 32px;padding:12px 32px;background:#14181D;border-bottom:1px solid #1C2128">
+    <div style="font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:24px">Stream</div>
+    <nav aria-label="Sections" style="display:flex;gap:4px">
+      <a class="tab" href="Main.dc.html">Sports</a>
+      <a class="tab" href="TV.dc.html" aria-current="page">TV</a>
+      <a class="tab" href="Movies.dc.html">Movies</a>
+    </nav>
+    <div style="flex:1 1 300px;max-width:520px;margin-left:auto">
+      <label for="global-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Search channels, shows, movies</label>
+      <input id="global-search" class="search" type="search" placeholder="Search channels, shows, movies…">
+    </div>
+    <button type="button" aria-label="User menu" style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#1C2128;color:#E8EAED;border:1px solid #2A313A;border-radius:999px;cursor:pointer">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <div style="display:flex;flex-wrap:wrap;gap:24px;padding:24px 32px 40px;box-sizing:border-box">
+    <aside aria-label="Channel categories" style="flex:0 0 220px;display:flex;flex-direction:column;gap:4px">
+      <h2 style="font-size:14px;color:#9AA3AD;text-transform:uppercase;letter-spacing:.06em;padding:0 12px 8px">Categories</h2>
+      <a class="cat" href="TV.dc.html" aria-current="true">Entertainment</a>
+      <a class="cat" href="TV.dc.html" aria-current="false">News</a>
+      <a class="cat" href="TV.dc.html" aria-current="false">Sports Networks</a>
+      <a class="cat" href="TV.dc.html" aria-current="false">Kids</a>
+      <a class="cat" href="TV.dc.html" aria-current="false">Movies Channels</a>
+      <a class="cat" href="TV.dc.html" aria-current="false">Local</a>
+    </aside>
+
+    <section aria-labelledby="tv-heading" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+        <h1 id="tv-heading" style="font-size:24px">Entertainment</h1>
+        <div style="flex:0 1 320px;min-width:200px">
+          <label for="filter-channels" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Filter channels</label>
+          <input id="filter-channels" class="field" type="search" placeholder="Filter channels">
+        </div>
+      </div>
+      <div class="grid">
+        <sc-for list="{{channels}}" as="c">
+          <article class="tile">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <h2 style="font-size:17px">{{c.name}}</h2>
+              <span style="color:#9AA3AD;font-size:13px;font-variant-numeric:tabular-nums">{{c.number}}</span>
+            </div>
+            <div>
+              <div style="color:#9AA3AD;font-size:13px">Now · {{c.nowTime}}</div>
+              <div style="font-weight:600">{{c.now}}</div>
+            </div>
+            <div class="track" role="progressbar" aria-label="{{c.name}} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{c.pct}}">
+              <div class="fill" style="width: {{c.pct}}%"></div>
+            </div>
+            <div>
+              <div style="color:#9AA3AD;font-size:13px">Next</div>
+              <div style="color:#E8EAED">{{c.next}}</div>
+            </div>
+          </article>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+channels: [
+{ number: '101', name: 'Channel 101', now: 'Evening Drama', nowTime: '8:00–9:00 PM', pct: 40, next: 'Late Feature' },
+{ number: '102', name: 'Channel 102', now: 'Talk Tonight', nowTime: '8:00–9:00 PM', pct: 70, next: 'Comedy Hour' },
+{ number: '103', name: 'Channel 103', now: 'Crime Files', nowTime: '7:30–8:30 PM', pct: 55, next: 'Crime Files: Part 2' },
+{ number: '104', name: 'Channel 104', now: 'Reality Showcase', nowTime: '8:00–9:00 PM', pct: 25, next: 'Cooking Contest' },
+{ number: '105', name: 'Channel 105', now: 'Sitcom Block', nowTime: '8:30–9:00 PM', pct: 60, next: 'Sitcom Block' },
+{ number: '106', name: 'Channel 106', now: 'Family Night', nowTime: '8:00–9:30 PM', pct: 30, next: 'Game Show' },
+{ number: '107', name: 'Channel 107', now: 'Game Show', nowTime: '8:00–8:30 PM', pct: 80, next: 'Variety Special' },
+{ number: '108', name: 'Channel 108', now: 'Documentary Hour', nowTime: '7:00–8:00 PM', pct: 90, next: 'Nature Series' },
+{ number: '109', name: 'Channel 109', now: 'Music Countdown', nowTime: '8:00–9:00 PM', pct: 15, next: 'Live Set' },
+{ number: '110', name: 'Channel 110', now: 'Legal Drama', nowTime: '9:00–10:00 PM', pct: 5, next: 'Legal Drama' },
+{ number: '111', name: 'Channel 111', now: 'Variety Show', nowTime: '8:00–9:00 PM', pct: 50, next: 'Late Night Talk' },
+{ number: '112', name: 'Channel 112', now: 'Mystery Movie', nowTime: '8:00–10:00 PM', pct: 45, next: 'Sitcom Block' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

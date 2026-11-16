@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stream: Sports (Live now)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D10;color:#E8EAED;font-family:Inter,system-ui,sans-serif}
+a{color:#3B82F6}a:hover{color:#60A5FA}
+h1,h2{font-family:"Space Grotesk",system-ui,sans-serif;margin:0;font-weight:700}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;color:#9AA3AD;text-decoration:none;font-weight:500;border-bottom:2px solid transparent}
+.tab[aria-current="page"]{color:#E8EAED;border-bottom-color:#3B82F6}
+.search{width:100%;box-sizing:border-box;min-height:44px;padding:0 14px;background:#1C2128;color:#E8EAED;border:1px solid #2A313A;border-radius:10px;font:inherit}
+.search::placeholder{color:#9AA3AD}
+.card{background:#14181D;border:1px solid #1C2128;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.pill{display:inline-block;background:#EF4444;color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:3px 10px}
+.play{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;width:100%;box-sizing:border-box;background:#3B82F6;color:#fff;border:0;border-radius:10px;cursor:pointer}
+.play:hover{background:#2563EB}
+.icon{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+</style>
+</helmet>
+<div style="box-sizing:border-box;min-height:1400px;background:#0B0D10">
+  <header style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 32px;padding:12px 32px;background:#14181D;border-bottom:1px solid #1C2128">
+    <div style="font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:24px">Stream</div>
+    <nav aria-label="Sections" style="display:flex;gap:4px">
+      <a class="tab" href="Main.dc.html" aria-current="page">Sports</a>
+      <a class="tab" href="TV.dc.html">TV</a>
+      <a class="tab" href="Movies.dc.html">Movies</a>
+    </nav>
+    <div style="flex:1 1 300px;max-width:520px;margin-left:auto">
+      <label for="global-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Search channels, shows, movies</label>
+      <input id="global-search" class="search" type="search" placeholder="Search channels, shows, movies…">
+    </div>
+    <button type="button" aria-label="User menu" style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#1C2128;color:#E8EAED;border:1px solid #2A313A;border-radius:999px;cursor:pointer">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <main style="padding:24px 32px 40px;display:flex;flex-direction:column;gap:32px">
+    <sc-for list="{{leagues}}" as="lg">
+      <section aria-labelledby="{{lg.id}}" style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:baseline;gap:12px">
+          <h2 id="{{lg.id}}" style="font-size:22px">Live {{lg.name}}</h2>
+          <span style="color:#9AA3AD;font-size:14px">{{lg.count}} live</span>
+        </div>
+        <div class="grid">
+          <sc-for list="{{lg.games}}" as="g">
+            <article class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                <span style="color:#9AA3AD;font-size:14px;font-weight:600">{{g.network}}</span>
+                <span class="pill">LIVE</span>
+              </div>
+              <div style="font-family:'Space Grotesk',system-ui,sans-serif;font-size:18px;font-weight:700">{{g.matchup}}</div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+                <span style="font-size:20px;font-weight:700;font-variant-numeric:tabular-nums">{{g.score}}</span>
+                <span style="color:#9AA3AD;font-size:14px">{{g.clock}}</span>
+              </div>
+              <a class="play" href="Player.dc.html" aria-label="Play {{g.matchup}} on {{g.network}}" style="text-decoration:none">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" style="fill:currentColor;stroke:none"><path d="M7 4.5v15l12-7.5z"/></svg>
+                <span style="font-weight:600">Watch</span>
+              </a>
+            </article>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+
+    <p style="margin:8px 0 0;color:#9AA3AD;font-size:14px">No live MLB games right now</p>
+    <p style="margin:0;color:#9AA3AD;font-size:13px">Updated 1 min ago</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+leagues: [
+{ id: 'lg-nfl', name: 'NFL', count: 3, games: [
+{ matchup: 'Bears at Packers', score: '17 – 14', clock: 'Q3 · 8:42', network: 'FOX' },
+{ matchup: 'Chiefs at Broncos', score: '14 – 7', clock: 'Q2 · 4:50', network: 'CBS' },
+{ matchup: 'Cowboys at Eagles', score: '7 – 3', clock: 'Q1 · 11:02', network: 'NBC' } ] },
+{ id: 'lg-cfb', name: 'CFB', count: 4, games: [
+{ matchup: 'Michigan at Ohio State', score: '21 – 17', clock: 'Q3 · 6:10', network: 'ABC' },
+{ matchup: 'Alabama at LSU', score: '14 – 21', clock: 'Q4 · 2:33', network: 'ESPN' },
+{ matchup: 'Texas at Oklahoma', score: '7 – 3', clock: 'Q2 · 12:40', network: 'FS1' },
+{ matchup: 'USC at Notre Dame', score: '0 – 7', clock: 'Q1 · 14:02', network: 'NBC' } ] },
+{ id: 'lg-nba', name: 'NBA', count: 2, games: [
+{ matchup: 'Celtics at Knicks', score: '54 – 51', clock: 'Q2 · 5:31', network: 'ESPN' },
+{ matchup: 'Lakers at Warriors', score: '62 – 60', clock: 'Q3 · 7:18', network: 'TNT' } ] },
+{ id: 'lg-nhl', name: 'NHL', count: 2, games: [
+{ matchup: 'Bruins at Rangers', score: '2 – 1', clock: 'P2 · 10:44', network: 'TNT' },
+{ matchup: 'Avalanche at Kings', score: '3 – 3', clock: 'P3 · 4:09', network: 'ESPN' } ] },
+{ id: 'lg-soc', name: 'Soccer', count: 1, games: [
+{ matchup: 'Liverpool at Arsenal', score: '1 – 1', clock: '67′', network: 'Peacock' } ] }
+]
+};
+}
+}
+</script>
+</body>
+</html>

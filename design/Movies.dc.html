@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stream: Movies</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0D10;color:#E8EAED;font-family:Inter,system-ui,sans-serif}
+a{color:#3B82F6}a:hover{color:#60A5FA}
+h1,h2{font-family:"Space Grotesk",system-ui,sans-serif;margin:0;font-weight:700}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;color:#9AA3AD;text-decoration:none;font-weight:500;border-bottom:2px solid transparent}
+.tab[aria-current="page"]{color:#E8EAED;border-bottom-color:#3B82F6}
+.search,.field,.select{box-sizing:border-box;min-height:44px;padding:0 14px;background:#1C2128;color:#E8EAED;border:1px solid #2A313A;border-radius:10px;font:inherit}
+.search,.field{width:100%}
+.search::placeholder,.field::placeholder{color:#9AA3AD}
+.chip{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;background:#1C2128;color:#E8EAED;border:1px solid #2A313A;cursor:pointer;font:inherit;font-weight:500}
+.chip[aria-pressed="true"]{background:#3B82F6;border-color:#3B82F6;color:#fff}
+.poster{background:#14181D;border:1px solid #1C2128;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.art{aspect-ratio:2/3;background:#1C2128;display:flex;align-items:center;justify-content:center;color:#9AA3AD;font-size:14px;font-weight:600;letter-spacing:.04em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:20px}
+.icon{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</helmet>
+<div style="box-sizing:border-box;min-height:1400px;background:#0B0D10">
+  <header style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 32px;padding:12px 32px;background:#14181D;border-bottom:1px solid #1C2128">
+    <div style="font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:24px">Stream</div>
+    <nav aria-label="Sections" style="display:flex;gap:4px">
+      <a class="tab" href="Main.dc.html">Sports</a>
+      <a class="tab" href="TV.dc.html">TV</a>
+      <a class="tab" href="Movies.dc.html" aria-current="page">Movies</a>
+    </nav>
+    <div style="flex:1 1 300px;max-width:520px;margin-left:auto">
+      <label for="global-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Search channels, shows, movies</label>
+      <input id="global-search" class="search" type="search" placeholder="Search channels, shows, movies…">
+    </div>
+    <button type="button" aria-label="User menu" style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#1C2128;color:#E8EAED;border:1px solid #2A313A;border-radius:999px;cursor:pointer">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <div style="box-sizing:border-box;padding:24px 32px 40px;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px">
+      <h1 style="font-size:28px">Movies</h1>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+        <div style="flex:0 1 280px;min-width:200px">
+          <label for="filter-movies" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Filter movies</label>
+          <input id="filter-movies" class="field" type="search" placeholder="Filter movies">
+        </div>
+        <label for="sort-movies" style="color:#9AA3AD;font-size:14px">Sort by</label>
+        <select id="sort-movies" class="select">
+          <option value="recent" selected>Recently added</option>
+          <option value="title">Title A–Z</option>
+          <option value="year">Year</option>
+        </select>
+      </div>
+    </div>
+
+    <div role="group" aria-label="Genre" style="display:flex;flex-wrap:wrap;gap:8px">
+      <sc-for list="{{genres}}" as="gn">
+        <button type="button" class="chip" aria-pressed="{{gn.pressed}}">{{gn.name}}</button>
+      </sc-for>
+    </div>
+
+    <div class="grid">
+      <sc-for list="{{movies}}" as="m">
+        <article class="poster">
+          <div class="art" aria-hidden="true">[POSTER]</div>
+          <div style="padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px">
+            <h2 style="font-size:16px">{{m.title}}</h2>
+            <div style="color:#9AA3AD;font-size:14px">{{m.year}} · {{m.runtime}}</div>
+          </div>
+        </article>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+renderVals() {
+const genres = ['All', 'Action', 'Comedy', 'Drama', 'Horror', 'Family', 'Documentary'];
+return {
+genres: genres.map((name, i) => ({ name, pressed: i === 0 ? 'true' : 'false' })),
+movies: Array.from({ length: 15 }, (_, i) => ({
+title: '[Movie title] ' + (i + 1),
+year: '20' + String(10 + (i % 14)).padStart(2, '0'),
+runtime: (92 + ((i * 7) % 40)) + ' min'
+}))
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (gitignored) and fill in, or pass as -var flags / CI vars.
+project_id          = "stream-iptv-prd"
+region              = "us-central1"
+domain              = "stream.slottedgolf.us"
+billing_account_id  = "01FF6E-D3D8F5-FB4FAD"
+budget_amount_usd   = 25
+github_repo         = "rayzax/stream-app"
+stream_mode         = "cloudrun"
+homelab_proxy_url   = ""

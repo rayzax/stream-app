@@ -1,0 +1,4 @@
+# Copy to backend.hcl (gitignored) and fill in, or pass these as
+# -backend-config flags to `terraform init`. Created by scripts/bootstrap.sh.
+bucket = "stream-iptv-prd-tfstate"
+prefix = "stream-app"

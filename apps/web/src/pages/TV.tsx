@@ -83,7 +83,7 @@ export default function TV() {
   return (
     <div className="tv-layout">
       {/* Mobile: sticky blurred chip row instead of a tall vertical list. */}
-      <div className="tv-chip-row md:hidden">
+      <div className="tv-chip-row">
         {categories.map((c) => (
           <button
             key={c.categoryId}

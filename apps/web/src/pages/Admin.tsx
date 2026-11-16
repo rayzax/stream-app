@@ -142,29 +142,33 @@ function UsersSection({ currentUserId }: { currentUserId: string }) {
       ) : (
         <div className="flex flex-col gap-2">
           {users.map((u) => (
-            <div key={u.id} className="card card--compact flex-row items-center">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-3">
-                <UserIcon width={18} height={18} className="text-muted" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="row-name">
-                  {u.username}
-                  {u.id === currentUserId && <span className="row-meta"> (you)</span>}
+            <div key={u.id} className="card card--compact flex-row flex-wrap items-center gap-3">
+              <div className="flex min-w-[180px] flex-1 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-3">
+                  <UserIcon width={18} height={18} className="text-muted" />
                 </div>
-                <div className="row-meta">
-                  {u.disabled ? 'Disabled' : 'Active'} · joined {new Date(u.createdAt).toLocaleDateString()}
+                <div className="min-w-0">
+                  <div className="row-name">
+                    {u.username}
+                    {u.id === currentUserId && <span className="row-meta"> (you)</span>}
+                  </div>
+                  <div className="row-meta">
+                    {u.disabled ? 'Disabled' : 'Active'} · joined {new Date(u.createdAt).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
-              <span className="tag">{u.role}</span>
-              <button className="chip" aria-pressed={false} onClick={() => toggleRole(u)}>
-                Make {u.role === 'admin' ? 'user' : 'admin'}
-              </button>
-              <button className="chip" aria-pressed={u.disabled} onClick={() => toggleDisabled(u)}>
-                {u.disabled ? 'Enable' : 'Disable'}
-              </button>
-              <Button variant="ghost" size="icon" aria-label="Delete user" onClick={() => removeUser(u)}>
-                <TrashIcon width={16} height={16} />
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="tag">{u.role}</span>
+                <button className="chip" aria-pressed={false} onClick={() => toggleRole(u)}>
+                  Make {u.role === 'admin' ? 'user' : 'admin'}
+                </button>
+                <button className="chip" aria-pressed={u.disabled} onClick={() => toggleDisabled(u)}>
+                  {u.disabled ? 'Enable' : 'Disable'}
+                </button>
+                <Button variant="ghost" size="icon" aria-label="Delete user" onClick={() => removeUser(u)}>
+                  <TrashIcon width={16} height={16} />
+                </Button>
+              </div>
             </div>
           ))}
         </div>

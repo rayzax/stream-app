@@ -40,6 +40,18 @@
   --radius-field: 10px;
 }
 
+/* Everything from here down goes in Tailwind's "components" layer — NOT
+   left unlayered — specifically so that utility classes (e.g. flex-row,
+   items-center, max-w-*) can still override these custom component rules
+   where they're mixed in JSX. Tailwind v4 cascade layers mean an unlayered
+   rule beats a layered one regardless of specificity or source order; a
+   plain `.card { flex-direction: column }` here was silently beating
+   `className="card flex-row"` everywhere that pattern was used (Admin's
+   forms/rows rendering stacked+centered instead of as a row) until this
+   was wrapped. Found the hard way — verify any new utility+custom-class
+   combo actually renders as expected, don't assume the override works. */
+@layer components {
+
 :root {
   /* Back-compat var() aliases for the not-yet-migrated screens/classes below. */
   --bg: var(--color-bg);
@@ -444,10 +456,24 @@ button {
 }
 
 .score {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* A drawn separator, not a text glyph — sitting inside a flex row avoids
+   any inline-baseline ambiguity from the animated ScoreFlip spans (an
+   en-dash character there visually sank to the underscore position). */
+.score-sep {
+  display: inline-block;
+  width: 10px;
+  height: 2px;
+  background: var(--muted);
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .clock {
@@ -516,7 +542,7 @@ button {
 
 .tv-sidebar {
   width: 100%;
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 4px;
 }
@@ -542,6 +568,12 @@ button {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   width: 100%;
+}
+
+@media (min-width: 768px) {
+  .tv-chip-row {
+    display: none;
+  }
 }
 
 .cat {
@@ -625,6 +657,7 @@ button {
 
 @media (min-width: 768px) {
   .tv-sidebar {
+    display: flex;
     width: 220px;
     flex-shrink: 0;
   }
@@ -1028,3 +1061,5 @@ button {
     transform: translateY(0);
   }
 }
+
+} /* end @layer components */

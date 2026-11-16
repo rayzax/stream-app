@@ -21,7 +21,7 @@ function GameCard({ entry }: { entry: SportsEntry }) {
       {hasScore && (
         <div className="score-row">
           <span className="score">
-            <ScoreFlip value={entry.awayScore!} /> – <ScoreFlip value={entry.homeScore!} />
+            <ScoreFlip value={entry.awayScore!} /> <span className="score-sep" /> <ScoreFlip value={entry.homeScore!} />
           </span>
           {entry.clock && <span className="clock">{entry.clock}</span>}
         </div>

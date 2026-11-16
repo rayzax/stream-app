@@ -25,7 +25,7 @@ function OtherGamesList({ others, onPick }: { others: SportsEntry[]; onPick: (st
             <div className="game-title">{g.homeTeam && g.awayTeam ? `${g.awayTeam} at ${g.homeTeam}` : g.name}</div>
             {g.homeScore !== undefined && (
               <div className="game-meta">
-                <ScoreFlip value={g.awayScore!} />–<ScoreFlip value={g.homeScore!} /> {g.clock}
+                <ScoreFlip value={g.awayScore!} /> <span className="score-sep" /> <ScoreFlip value={g.homeScore!} /> {g.clock}
               </div>
             )}
           </div>

@@ -147,6 +147,10 @@ export function getTv() {
   return request<{ categories: TvCategory[] }>('/api/tv');
 }
 
+export function getTvGuide() {
+  return request<{ channels: ChannelView[] }>('/api/tv/guide');
+}
+
 export interface MovieView {
   streamId: number;
   name: string;

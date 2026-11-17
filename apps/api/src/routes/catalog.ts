@@ -15,6 +15,10 @@ export async function catalogRoutes(fastify: FastifyInstance, cache: CatalogCach
     return { categories };
   });
 
+  fastify.get('/api/tv/guide', async () => {
+    return { channels: cache.channelsForGuide() };
+  });
+
   fastify.get('/api/movies', async () => {
     const categories = cache.categoriesMovies().map((c) => ({
       categoryId: c.category_id,

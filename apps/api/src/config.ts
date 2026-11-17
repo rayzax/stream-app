@@ -23,19 +23,31 @@ function parseVodExcludePatterns(): RegExp[] {
   const raw = process.env.VOD_EXCLUDE_PATTERNS;
   // VOD categories on this provider do NOT use the live-TV "US|" prefix
   // convention at all — they're named by streaming service (NETFLIX
-  // MOVIES, AMAZON MOVIES, ...) with no region tag, or by an explicit
-  // "<code> - " prefix for foreign-language catalogs (verified against
-  // this provider's real category list). There's no reliable positive "is
-  // US" signal for VOD, so the safe default is an EXCLUDE list of known
-  // foreign-language codes rather than an include list — showing too much
-  // beats showing nothing. "EN -" (English) is deliberately NOT in this
-  // list. Override via VOD_EXCLUDE_PATTERNS (comma-separated regexes); set
-  // it to an empty value to disable VOD filtering entirely.
+  // MOVIES, AMAZON MOVIES, ...) with no region tag, by an explicit
+  // "<code> - " prefix (including compound codes like "PT/BR - "), by a
+  // bare region/service word with no dash at all (NORDIC, DANSKE, OSN+,
+  // ...), or — for a large chunk of real categories — entirely in Arabic
+  // script with no Latin marker whatsoever (verified against this
+  // provider's real category list: ~90 categories like "أفلام عربية
+  // حديثه"). No Latin-code regex can ever catch that last group, so
+  // non-Latin script is matched directly. There's no reliable positive "is
+  // US" signal for VOD, so the safe default is an EXCLUDE list rather than
+  // an include list — showing too much beats showing nothing. "EN -"
+  // (English) is deliberately NOT in this list. Override via
+  // VOD_EXCLUDE_PATTERNS (comma-separated regexes); set it to an empty
+  // value to disable VOD filtering entirely.
   const defaultCodes = [
-    'AF', 'AL', 'BE', 'BG', 'BN', 'BR', 'CN', 'DE', 'ES', 'FR', 'GR', 'IL', 'IN', 'IR', 'IT',
+    'AF', 'AL', 'BE', 'BG', 'BN', 'BR', 'CN', 'DE', 'ES', 'EX', 'FR', 'GR', 'IL', 'IN', 'IR', 'IT',
     'JP', 'KU', 'LA', 'MT', 'NL', 'PH', 'PK', 'PL', 'PT', 'QC', 'RO', 'RU', 'SO', 'TR',
   ];
-  const defaults = [`^(${defaultCodes.join('|')})\\s*-\\s`];
+  const codePrefix = `^(${defaultCodes.join('|')})(/(${defaultCodes.join('|')}))?\\s*-\\s`;
+  // "\b" can't match right after "OSN+" (neither "+" nor the following
+  // space is a word character), so that one is matched separately without
+  // a trailing boundary.
+  const bareWords = ['NORDIC', 'NORGE', 'DANSKE', 'SVENSKA', 'SUOMEN', 'VIAPLAY', 'ÍSLANDS', 'ARABIA'];
+  const bareWordPattern = `\\b(${bareWords.join('|')})\\b|OSN\\+`;
+  const nonLatinScript = '[\\u0590-\\u08FF]';
+  const defaults = [codePrefix, bareWordPattern, nonLatinScript];
   const patterns = raw !== undefined ? raw.split(',').map((p) => p.trim()).filter(Boolean) : defaults;
   return patterns.map((p) => new RegExp(p, 'i'));
 }

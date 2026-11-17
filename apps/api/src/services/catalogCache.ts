@@ -4,6 +4,7 @@ import { XtreamClient, type XtreamCategory, type XtreamLiveStream, type XtreamVo
 import { parseXmltv, buildEpgIndex, nowNextFromIndex, type EpgProgramme } from './epg.js';
 import { fetchLiveGamesByLeague, SPORTS_LEAGUES, type LiveGame } from './espnScoreboard.js';
 import { GameMappingStore, type GameMapping } from './gameMappings.js';
+import { GUIDE_CHANNELS } from './guideChannels.js';
 
 function groupBy<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]> {
   const map = new Map<string, T[]>();
@@ -294,6 +295,35 @@ export class CatalogCache {
           next: next ? { title: next.title, start: next.start.toISOString(), stop: next.stop.toISOString() } : undefined,
         };
       });
+  }
+
+  /**
+   * The "Guide" view: a fixed, curated line-up of major networks (Denver
+   * local broadcast + national cable) in a traditional cable-guide channel
+   * number order, instead of the full "All TV" catalog — see
+   * guideChannels.ts for the line-up and how each slot is matched. A slot
+   * is skipped (not rendered) if its channel isn't found in the current
+   * catalog, rather than erroring.
+   */
+  channelsForGuide(): ChannelView[] {
+    const now = new Date();
+    const result: ChannelView[] = [];
+    for (const slot of GUIDE_CHANNELS) {
+      const stream = this.liveStreams.find((s) => slot.pattern.test(s.name));
+      if (!stream) continue;
+      const channelId = stream.epg_channel_id ?? '';
+      const { now: n, next } = nowNextFromIndex(this.epgIndex, channelId, now);
+      result.push({
+        streamId: stream.stream_id,
+        num: slot.num,
+        name: slot.network,
+        logo: stream.stream_icon,
+        categoryName: 'Guide',
+        now: n ? { title: n.title, start: n.start.toISOString(), stop: n.stop.toISOString() } : undefined,
+        next: next ? { title: next.title, start: next.start.toISOString(), stop: next.stop.toISOString() } : undefined,
+      });
+    }
+    return result;
   }
 
   categoriesMovies(): XtreamCategory[] {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getTv, type ChannelView, type TvCategory } from '../lib/api';
+import { getTv, getTvGuide, type ChannelView, type TvCategory } from '../lib/api';
 import { Skeleton } from '../components/ui/skeleton';
 
 function progressPct(now?: { start: string; stop: string }): number {
@@ -10,6 +10,71 @@ function progressPct(now?: { start: string; stop: string }): number {
   const current = Date.now();
   if (stop <= start) return 0;
   return Math.min(100, Math.max(0, ((current - start) / (stop - start)) * 100));
+}
+
+function GuideRow({ channel }: { channel: ChannelView }) {
+  const navigate = useNavigate();
+  return (
+    <button className="guide-row" onClick={() => navigate(`/player/live/${channel.streamId}`)}>
+      <span className="guide-num">{channel.num}</span>
+      <span className="guide-info">
+        <span className="guide-network">{channel.name}</span>
+        {channel.now ? (
+          <>
+            <span className="guide-now">
+              <span>Now</span>
+              <span>{channel.now.title}</span>
+            </span>
+            <div className="guide-track">
+              <span style={{ width: `${progressPct(channel.now)}%` }} />
+            </div>
+          </>
+        ) : (
+          <span className="guide-now">
+            <span>No guide data</span>
+          </span>
+        )}
+        {channel.next && (
+          <span className="guide-next">
+            <span>Next</span>
+            <span>{channel.next.title}</span>
+          </span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+function Guide() {
+  const [channels, setChannels] = useState<ChannelView[] | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    getTvGuide()
+      .then((res) => setChannels(res.channels))
+      .catch(() => setError(true));
+  }, []);
+
+  if (error) return <div className="error-state">Couldn't load the guide.</div>;
+  if (!channels) {
+    return (
+      <div className="flex w-full flex-col gap-2 p-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4">
+      <div className="guide-list">
+        {channels.map((ch) => (
+          <GuideRow key={ch.streamId} channel={ch} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ChannelTile({ channel }: { channel: ChannelView }) {
@@ -39,7 +104,7 @@ function ChannelTile({ channel }: { channel: ChannelView }) {
   );
 }
 
-export default function TV() {
+function AllTv() {
   const [categories, setCategories] = useState<TvCategory[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
@@ -129,6 +194,28 @@ export default function TV() {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+type TvView = 'all' | 'guide';
+
+export default function TV() {
+  const [view, setView] = useState<TvView>('all');
+
+  return (
+    <div className="flex w-full flex-col">
+      <div className="flex gap-6 border-b border-border px-4 pt-3 md:px-0">
+        {([
+          ['all', 'All TV'],
+          ['guide', 'Guide'],
+        ] as const).map(([key, label]) => (
+          <button key={key} className="tab" aria-current={view === key ? 'page' : undefined} onClick={() => setView(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === 'all' ? <AllTv /> : <Guide />}
     </div>
   );
 }

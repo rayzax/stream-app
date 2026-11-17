@@ -225,7 +225,9 @@ export default function Stream() {
             </section>
           )}
 
-          {rows && rows.length === 0 && <div className="empty-state">No matches.</div>}
+          {rows && rows.length === 0 && (
+            <div className="empty-state">{searching ? 'No matches.' : 'Nothing here yet.'}</div>
+          )}
 
           {rows?.map((row) => (
             <section key={row.categoryName} className="league-section">

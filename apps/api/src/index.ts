@@ -62,7 +62,11 @@ await fastify.register(streamProxyPlugin, { xtream: config.xtream, hmacKey: conf
 const webDist = join(import.meta.dirname, '..', '..', 'web', 'dist');
 await fastify.register(fastifyStatic, { root: webDist });
 fastify.setNotFoundHandler(async (req, reply) => {
-  if (req.raw.url?.startsWith('/api') || req.raw.url?.startsWith('/stream')) {
+  // "/stream/" (trailing slash) only — the video-proxy routes are always
+  // /stream/live, /stream/vod, /stream/series, never a bare "/stream". The
+  // frontend's own page route IS "/stream" (the on-demand browse page), so
+  // a prefix check without the slash would 404 that page's SPA fallback.
+  if (req.raw.url?.startsWith('/api') || req.raw.url?.startsWith('/stream/')) {
     return reply.status(404).send({ error: 'not_found' });
   }
   return reply.sendFile('index.html', webDist);

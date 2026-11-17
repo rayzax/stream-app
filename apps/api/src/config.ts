@@ -41,11 +41,14 @@ function parseVodExcludePatterns(): RegExp[] {
     'JP', 'KU', 'LA', 'MT', 'NL', 'PH', 'PK', 'PL', 'PT', 'QC', 'RO', 'RU', 'SO', 'TR',
   ];
   const codePrefix = `^(${defaultCodes.join('|')})(/(${defaultCodes.join('|')}))?\\s*-\\s`;
-  // "\b" can't match right after "OSN+" (neither "+" nor the following
-  // space is a word character), so that one is matched separately without
-  // a trailing boundary.
-  const bareWords = ['NORDIC', 'NORGE', 'DANSKE', 'SVENSKA', 'SUOMEN', 'VIAPLAY', 'ÍSLANDS', 'ARABIA'];
-  const bareWordPattern = `\\b(${bareWords.join('|')})\\b|OSN\\+`;
+  // JS's "\b" only treats ASCII [A-Za-z0-9_] as word characters, so it
+  // silently fails to match right next to "+" (OSN+) or a leading accented
+  // letter (ÍSLANDS) — in both cases the boundary check falls between two
+  // chars it considers non-word, which never satisfies \b. Those two are
+  // matched without boundaries instead; everything else is plain ASCII and
+  // safe to anchor normally.
+  const bareWords = ['NORDIC', 'NORGE', 'DANSKE', 'SVENSKA', 'SUOMEN', 'VIAPLAY', 'ARABIA'];
+  const bareWordPattern = `\\b(${bareWords.join('|')})\\b|OSN\\+|ÍSLANDS`;
   const nonLatinScript = '[\\u0590-\\u08FF]';
   const defaults = [codePrefix, bareWordPattern, nonLatinScript];
   const patterns = raw !== undefined ? raw.split(',').map((p) => p.trim()).filter(Boolean) : defaults;

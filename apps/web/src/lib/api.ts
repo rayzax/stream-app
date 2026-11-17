@@ -177,20 +177,80 @@ export function getMovieDetails(id: number) {
   );
 }
 
+export interface SeriesView {
+  seriesId: number;
+  name: string;
+  logo: string;
+  categoryName: string;
+  rating: string;
+  plot?: string;
+  genre?: string;
+  added: number;
+}
+
+export interface SeriesCategory {
+  categoryId: string;
+  categoryName: string;
+  series: SeriesView[];
+}
+
+export function getSeries() {
+  return request<{ categories: SeriesCategory[] }>('/api/series');
+}
+
+export interface SeriesEpisode {
+  id: string;
+  episode_num: number;
+  title: string;
+  container_extension: string;
+  season: number;
+  info?: { plot?: string; duration?: string };
+}
+
+export interface SeriesDetails {
+  seasons: Array<{ season_number: number; name: string; episode_count: number; cover?: string; overview?: string }>;
+  info: Record<string, unknown> & { name?: string; plot?: string; genre?: string; cover?: string };
+  episodes: Record<string, SeriesEpisode[]>;
+}
+
+export function getSeriesDetails(id: number) {
+  return request<SeriesDetails>(`/api/series/${id}`);
+}
+
 export interface SearchResult {
-  type: 'live' | 'vod';
+  type: 'live' | 'vod' | 'series';
   streamId: number;
   name: string;
   categoryName: string;
 }
 
 export function search(q: string) {
-  return request<{ live: SearchResult[]; vod: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`);
+  return request<{ live: SearchResult[]; vod: SearchResult[]; series: SearchResult[] }>(
+    `/api/search?q=${encodeURIComponent(q)}`,
+  );
 }
 
-export function getStreamToken(streamId: number, type: 'live' | 'vod', ext?: string) {
+export function getStreamToken(streamId: number, type: 'live' | 'vod' | 'series', ext?: string) {
   return request<{ url: string; via: 'homelab' | 'cloud'; expiresInSeconds: number }>('/api/stream-token', {
     method: 'POST',
     body: JSON.stringify({ streamId, type, ext }),
   });
+}
+
+export interface WatchHistoryEntry {
+  streamId: number;
+  type: 'vod' | 'series';
+  name: string;
+  logo: string;
+  playStreamId: number;
+  ext: string;
+  watchedAt: string;
+}
+
+export function getWatchHistory() {
+  return request<{ items: WatchHistoryEntry[] }>('/api/watch-history');
+}
+
+export function recordWatch(entry: Omit<WatchHistoryEntry, 'watchedAt'>) {
+  return request<{ ok: true }>('/api/watch-history', { method: 'POST', body: JSON.stringify(entry) });
 }

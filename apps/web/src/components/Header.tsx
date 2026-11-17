@@ -7,8 +7,8 @@ import { useCurrentUser } from '../lib/AuthContext';
 
 const TABS = [
   { to: '/', label: 'Sports' },
-  { to: '/tv', label: 'TV' },
-  { to: '/movies', label: 'Movies' },
+  { to: '/tv', label: 'Live TV' },
+  { to: '/stream', label: 'Stream' },
 ];
 
 export default function Header() {
@@ -45,7 +45,7 @@ export default function Header() {
         <SearchIcon />
         <input
           type="search"
-          placeholder="Search channels, movies, games"
+          placeholder="Search channels, movies, shows, games"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           aria-label="Search"

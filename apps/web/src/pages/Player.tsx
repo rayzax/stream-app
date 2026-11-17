@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
-import { getSports, getStreamToken, type SportsEntry } from '../lib/api';
+import { getSports, getStreamToken, recordWatch, type SportsEntry } from '../lib/api';
 import VideoPlayer from '../components/VideoPlayer';
 import { BackIcon } from '../components/icons';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '../components/ui/drawer';
@@ -37,11 +37,14 @@ function OtherGamesList({ others, onPick }: { others: SportsEntry[]; onPick: (st
 }
 
 export default function Player() {
-  const { type, id } = useParams<{ type: 'live' | 'vod'; id: string }>();
+  const { type, id } = useParams<{ type: 'live' | 'vod' | 'series'; id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const streamId = Number(id);
   const ext = searchParams.get('ext') ?? undefined;
+  const name = searchParams.get('name') ?? undefined;
+  const logo = searchParams.get('logo') ?? undefined;
+  const seriesId = searchParams.get('seriesId');
 
   const [token, setToken] = useState<{ url: string; via: 'cloud' | 'homelab' } | null>(null);
   const [error, setError] = useState(false);
@@ -53,6 +56,23 @@ export default function Player() {
       .then((res) => setToken({ url: res.url, via: res.via }))
       .catch(() => setError(true));
   }, [streamId, type, ext]);
+
+  // Record a watch-history entry once playback is set up for an on-demand
+  // title. The identity key is the series_id for an episode (so repeat
+  // episodes of the same show consolidate into one "Continue Watching"
+  // entry) but playback always resumes via this specific stream/episode.
+  useEffect(() => {
+    if (!token || !name || !ext || (type !== 'vod' && type !== 'series')) return;
+    recordWatch({
+      streamId: type === 'series' && seriesId ? Number(seriesId) : streamId,
+      type,
+      name,
+      logo: logo ?? '',
+      playStreamId: streamId,
+      ext,
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     if (type === 'live') getSports().then((res) => setSports(res.leagues)).catch(() => {});
@@ -69,7 +89,7 @@ export default function Player() {
 
   if (error) return <div className="error-state">Couldn't start playback.</div>;
 
-  const title = current ? (current.homeTeam && current.awayTeam ? `${current.awayTeam} at ${current.homeTeam}` : current.name) : '';
+  const title = current ? (current.homeTeam && current.awayTeam ? `${current.awayTeam} at ${current.homeTeam}` : current.name) : name ?? '';
   const hasOthers = type === 'live' && !!league && others.length > 0;
 
   function goToGame(id: number) {
@@ -85,7 +105,7 @@ export default function Player() {
               <BackIcon />
             </button>
             <span className="muted" style={{ color: 'var(--muted)' }}>
-              Back to {type === 'live' ? 'Sports' : 'Movies'}
+              Back to {type === 'live' ? 'Sports' : 'Stream'}
             </span>
           </div>
           <div className="player-layout">

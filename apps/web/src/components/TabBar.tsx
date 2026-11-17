@@ -3,8 +3,8 @@ import { GlobeIcon, TvIcon, FilmIcon } from './icons';
 
 const TABS = [
   { to: '/', label: 'Sports', Icon: GlobeIcon },
-  { to: '/tv', label: 'TV', Icon: TvIcon },
-  { to: '/movies', label: 'Movies', Icon: FilmIcon },
+  { to: '/tv', label: 'Live TV', Icon: TvIcon },
+  { to: '/stream', label: 'Stream', Icon: FilmIcon },
 ];
 
 export default function TabBar() {

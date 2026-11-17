@@ -856,6 +856,35 @@ button {
   font-size: 13px;
 }
 
+/* --- Series detail (season/episode picker) ---------------------------------- */
+
+.series-head {
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+}
+.series-cover {
+  width: 120px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.series-plot {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 8px;
+  max-width: 640px;
+}
+
+.episode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 0;
+}
+
 /* --- Search results ---------------------------------------------------------- */
 
 .results-group {

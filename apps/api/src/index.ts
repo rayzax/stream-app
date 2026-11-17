@@ -10,10 +10,12 @@ import { authRoutes } from './routes/auth.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { streamRoutes } from './routes/stream.js';
 import { adminRoutes } from './routes/admin.js';
+import { watchHistoryRoutes } from './routes/watchHistory.js';
 import { XtreamClient } from './services/xtreamClient.js';
 import { CatalogCache } from './services/catalogCache.js';
 import { UserStore } from './services/users.js';
 import { GameMappingStore } from './services/gameMappings.js';
+import { WatchHistoryStore } from './services/watchHistory.js';
 
 const config = loadConfig();
 const fastify = Fastify({ logger: true });
@@ -28,6 +30,7 @@ fastify.get('/healthz', async () => ({ status: 'ok' }));
 
 const users = new UserStore();
 const mappings = new GameMappingStore();
+const watchHistory = new WatchHistoryStore();
 
 // --- Auth (public: /api/login, /api/logout) ---------------------------------
 await authRoutes(fastify, config, users);
@@ -41,6 +44,7 @@ await fastify.register(async (instance) => {
   instance.get('/api/session', async (req) => ({ ok: true, user: req.user }));
   await catalogRoutes(instance, catalog);
   await streamRoutes(instance, config);
+  await watchHistoryRoutes(instance, watchHistory);
 
   // Admin-only sub-group — same session requirement plus a role check.
   await instance.register(async (admin) => {

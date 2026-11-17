@@ -32,6 +32,34 @@ export interface XtreamVodInfo {
   movie_data: { stream_id: number; container_extension: string };
 }
 
+export interface XtreamSeries {
+  num: number;
+  name: string;
+  series_id: number;
+  cover: string;
+  plot?: string;
+  genre?: string;
+  releaseDate?: string;
+  rating: string;
+  category_id: string;
+  last_modified: string;
+}
+
+export interface XtreamSeriesEpisode {
+  id: string;
+  episode_num: number;
+  title: string;
+  container_extension: string;
+  season: number;
+  info?: { plot?: string; duration?: string };
+}
+
+export interface XtreamSeriesInfo {
+  seasons: Array<{ season_number: number; name: string; episode_count: number; cover?: string; overview?: string }>;
+  info: Record<string, unknown> & { name?: string; plot?: string; genre?: string; cover?: string };
+  episodes: Record<string, XtreamSeriesEpisode[]>;
+}
+
 export interface XtreamClientOptions {
   server: string;
   username: string;
@@ -83,6 +111,18 @@ export class XtreamClient {
 
   getVodInfo(vodId: number): Promise<XtreamVodInfo> {
     return this.getJson(this.apiUrl('get_vod_info', { vod_id: String(vodId) }));
+  }
+
+  getSeriesCategories(): Promise<XtreamCategory[]> {
+    return this.getJson(this.apiUrl('get_series_categories'));
+  }
+
+  getSeries(categoryId?: string): Promise<XtreamSeries[]> {
+    return this.getJson(this.apiUrl('get_series', categoryId ? { category_id: categoryId } : {}));
+  }
+
+  getSeriesInfo(seriesId: number): Promise<XtreamSeriesInfo> {
+    return this.getJson(this.apiUrl('get_series_info', { series_id: String(seriesId) }));
   }
 
   async getXmltv(): Promise<string> {

@@ -7,7 +7,7 @@ export default function Search() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [q, setQ] = useState(params.get('q') ?? '');
-  const [results, setResults] = useState<{ live: SearchResult[]; vod: SearchResult[] } | null>(null);
+  const [results, setResults] = useState<{ live: SearchResult[]; vod: SearchResult[]; series: SearchResult[] } | null>(null);
 
   useEffect(() => {
     const query = q.trim();
@@ -16,7 +16,9 @@ export default function Search() {
       return;
     }
     const handle = setTimeout(() => {
-      search(query).then(setResults).catch(() => setResults({ live: [], vod: [] }));
+      search(query)
+        .then(setResults)
+        .catch(() => setResults({ live: [], vod: [], series: [] }));
     }, 250);
     return () => clearTimeout(handle);
   }, [q]);
@@ -25,6 +27,7 @@ export default function Search() {
     ? [
         { title: 'Live TV', items: results.live },
         { title: 'Movies', items: results.vod },
+        { title: 'TV Series', items: results.series },
       ].filter((g) => g.items.length > 0)
     : [];
 
@@ -52,13 +55,18 @@ export default function Search() {
               key={`${item.type}-${item.streamId}`}
               className="row"
               style={{ cursor: 'pointer' }}
-              onClick={() => navigate(`/player/${item.type === 'live' ? 'live' : 'vod'}/${item.streamId}`)}
+              onClick={() => {
+                if (item.type === 'series') navigate(`/series/${item.streamId}`);
+                else navigate(`/player/${item.type}/${item.streamId}?name=${encodeURIComponent(item.name)}`);
+              }}
             >
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="row-name">{item.name}</div>
                 <div className="row-meta">{item.categoryName.replace(/^US\|\s*/i, '')}</div>
               </div>
-              <span className={item.type === 'live' ? 'tag-live' : 'tag'}>{item.type === 'live' ? 'LIVE' : 'MOVIE'}</span>
+              <span className={item.type === 'live' ? 'tag-live' : 'tag'}>
+                {item.type === 'live' ? 'LIVE' : item.type === 'series' ? 'TV SERIES' : 'MOVIE'}
+              </span>
             </div>
           ))}
         </div>

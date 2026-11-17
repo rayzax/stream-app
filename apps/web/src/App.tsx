@@ -9,7 +9,8 @@ import Login from './pages/Login';
 // code-split like the rest rather than inflating the initial bundle.
 const Main = lazy(() => import('./pages/Main'));
 const TV = lazy(() => import('./pages/TV'));
-const Movies = lazy(() => import('./pages/Movies'));
+const Stream = lazy(() => import('./pages/Stream'));
+const SeriesDetail = lazy(() => import('./pages/SeriesDetail'));
 const Search = lazy(() => import('./pages/Search'));
 const Player = lazy(() => import('./pages/Player'));
 const Admin = lazy(() => import('./pages/Admin'));
@@ -40,7 +41,8 @@ function App() {
             <Route element={<AuthGate />}>
               <Route path="/" element={<Main />} />
               <Route path="/tv" element={<TV />} />
-              <Route path="/movies" element={<Movies />} />
+              <Route path="/stream" element={<Stream />} />
+              <Route path="/series/:id" element={<SeriesDetail />} />
               <Route path="/search" element={<Search />} />
               <Route path="/player/:type/:id" element={<Player />} />
               <Route path="/admin" element={<Admin />} />

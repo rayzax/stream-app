@@ -27,3 +27,10 @@ export function vodUpstreamUrl(creds: XtreamCreds, streamId: string, ext: string
   const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '') || 'mp4';
   return `${base}/movie/${encodeURIComponent(creds.username)}/${encodeURIComponent(creds.password)}/${encodeURIComponent(streamId)}.${safeExt}`;
 }
+
+/** Upstream URL for a series episode — same file-passthrough convention as VOD, under "/series/" instead of "/movie/". */
+export function seriesUpstreamUrl(creds: XtreamCreds, episodeId: string, ext: string): string {
+  const base = creds.server.replace(/\/+$/, '');
+  const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '') || 'mp4';
+  return `${base}/series/${encodeURIComponent(creds.username)}/${encodeURIComponent(creds.password)}/${encodeURIComponent(episodeId)}.${safeExt}`;
+}

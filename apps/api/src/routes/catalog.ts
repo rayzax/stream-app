@@ -38,11 +38,31 @@ export async function catalogRoutes(fastify: FastifyInstance, cache: CatalogCach
     }
   });
 
+  fastify.get('/api/series', async () => {
+    const categories = cache.categoriesSeries().map((c) => ({
+      categoryId: c.category_id,
+      categoryName: c.category_name,
+      series: cache.seriesForCategory(c.category_id),
+    }));
+    return { categories };
+  });
+
+  fastify.get<{ Params: { id: string } }>('/api/series/:id', async (req, reply) => {
+    const seriesId = Number(req.params.id);
+    if (!Number.isFinite(seriesId)) return reply.status(400).send({ error: 'invalid_id' });
+    try {
+      return await cache.seriesDetails(seriesId);
+    } catch {
+      return reply.status(502).send({ error: 'upstream_error' });
+    }
+  });
+
   fastify.get<{ Querystring: { q?: string } }>('/api/search', async (req) => {
     const results = cache.search(req.query.q ?? '');
     return {
       live: results.filter((r) => r.type === 'live'),
       vod: results.filter((r) => r.type === 'vod'),
+      series: results.filter((r) => r.type === 'series'),
     };
   });
 }

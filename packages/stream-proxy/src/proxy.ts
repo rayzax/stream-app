@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { verifyStreamToken } from './tokens.js';
-import { liveUpstreamUrl, vodUpstreamUrl, type XtreamCreds } from './xtreamUpstream.js';
+import { liveUpstreamUrl, vodUpstreamUrl, seriesUpstreamUrl, type XtreamCreds } from './xtreamUpstream.js';
 
 export interface StreamProxyOptions {
   xtream: XtreamCreds;
@@ -86,6 +86,31 @@ export async function streamProxyPlugin(fastify: FastifyInstance, opts: StreamPr
     const { sid, ext, sess } = verified.payload;
     const upstreamUrl = vodUpstreamUrl(xtream, sid, ext ?? 'mp4');
     const controller = claimSession(sess, `vod:${sid}`);
+    req.raw.on('close', () => releaseSession(sess, controller));
+
+    let upstreamRes: Response;
+    try {
+      upstreamRes = await fetch(upstreamUrl, {
+        signal: controller.signal,
+        headers: req.headers.range ? { range: req.headers.range as string } : undefined,
+      });
+    } catch {
+      return reply.status(502).send({ error: 'upstream_unreachable' });
+    }
+    if (!upstreamRes.ok && upstreamRes.status !== 206) {
+      return reply.status(502).send({ error: 'upstream_error', status: upstreamRes.status });
+    }
+    return proxyBinary(upstreamRes, req, reply);
+  });
+
+  fastify.get<{ Querystring: { token: string } }>('/stream/series', async (req, reply) => {
+    const verified = verifyStreamToken(req.query.token, hmacKey);
+    if (!verified.ok || verified.payload.t !== 'series') {
+      return reply.status(401).send({ error: 'invalid_token' });
+    }
+    const { sid, ext, sess } = verified.payload;
+    const upstreamUrl = seriesUpstreamUrl(xtream, sid, ext ?? 'mp4');
+    const controller = claimSession(sess, `series:${sid}`);
     req.raw.on('close', () => releaseSession(sess, controller));
 
     let upstreamRes: Response;

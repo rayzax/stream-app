@@ -12,11 +12,11 @@ async function homelabHealthy(homelabProxyUrl: string): Promise<boolean> {
 }
 
 export async function streamRoutes(fastify: FastifyInstance, config: AppConfig): Promise<void> {
-  fastify.post<{ Body: { streamId: number; type: 'live' | 'vod' | 'series'; ext?: string } }>(
+  fastify.post<{ Body: { streamId: number; type: 'live' | 'series'; ext?: string } }>(
     '/api/stream-token',
-    async (req: FastifyRequest<{ Body: { streamId: number; type: 'live' | 'vod' | 'series'; ext?: string } }>, reply) => {
+    async (req: FastifyRequest<{ Body: { streamId: number; type: 'live' | 'series'; ext?: string } }>, reply) => {
       const { streamId, type, ext } = req.body ?? {};
-      if (!streamId || (type !== 'live' && type !== 'vod' && type !== 'series')) {
+      if (!streamId || (type !== 'live' && type !== 'series')) {
         return reply.status(400).send({ error: 'invalid_request' });
       }
 

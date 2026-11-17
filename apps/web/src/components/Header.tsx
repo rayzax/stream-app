@@ -45,7 +45,7 @@ export default function Header() {
         <SearchIcon />
         <input
           type="search"
-          placeholder="Search channels, movies, shows, games"
+          placeholder="Search channels, shows, games"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           aria-label="Search"

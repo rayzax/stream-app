@@ -15,23 +15,6 @@ export interface XtreamLiveStream {
   tv_archive: number;
 }
 
-export interface XtreamVodStream {
-  num: number;
-  name: string;
-  stream_type: string;
-  stream_id: number;
-  stream_icon: string;
-  rating: string;
-  added: string;
-  category_id: string;
-  container_extension: string;
-}
-
-export interface XtreamVodInfo {
-  info: Record<string, unknown> & { plot?: string; genre?: string; releasedate?: string; rating?: string };
-  movie_data: { stream_id: number; container_extension: string };
-}
-
 export interface XtreamSeries {
   num: number;
   name: string;
@@ -81,7 +64,7 @@ export class XtreamClient {
   }
 
   private async getJson<T>(url: string): Promise<T> {
-    // Some of these (get_live_streams, get_vod_streams) return multi-MB
+    // Some of these (get_live_streams, get_series) return multi-MB
     // JSON for a full IPTV catalog — 15s was too tight in practice and
     // silently discarded the entire catalog refresh. See also: refreshFull
     // uses Promise.allSettled, not Promise.all, so one slow endpoint can no
@@ -99,18 +82,6 @@ export class XtreamClient {
 
   getLiveStreams(categoryId?: string): Promise<XtreamLiveStream[]> {
     return this.getJson(this.apiUrl('get_live_streams', categoryId ? { category_id: categoryId } : {}));
-  }
-
-  getVodCategories(): Promise<XtreamCategory[]> {
-    return this.getJson(this.apiUrl('get_vod_categories'));
-  }
-
-  getVodStreams(categoryId?: string): Promise<XtreamVodStream[]> {
-    return this.getJson(this.apiUrl('get_vod_streams', categoryId ? { category_id: categoryId } : {}));
-  }
-
-  getVodInfo(vodId: number): Promise<XtreamVodInfo> {
-    return this.getJson(this.apiUrl('get_vod_info', { vod_id: String(vodId) }));
   }
 
   getSeriesCategories(): Promise<XtreamCategory[]> {

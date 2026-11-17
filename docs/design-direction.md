@@ -32,7 +32,7 @@ Think a members-only screening room, not a sports bar. Deep navy instead of near
 
 - Live score changes: number-flip, transform/opacity only.
 - Tab switches: View Transitions cross-fade.
-- Sports/Movies rows: Embla, CSS scroll-snap.
+- Sports/Stream rows: Embla, CSS scroll-snap.
 - Everything else: CSS transitions, 120–300ms, transform/opacity only.
 
 ## What this rules out

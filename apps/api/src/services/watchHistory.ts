@@ -1,12 +1,12 @@
 import { Firestore } from '@google-cloud/firestore';
 
 export interface WatchHistoryEntry {
-  /** Identity/dedup key: the movie's own streamId, or the series_id for a show. */
+  /** Identity/dedup key: the series_id for a show. */
   streamId: number;
-  type: 'vod' | 'series';
+  type: 'series';
   name: string;
   logo: string;
-  /** The id to actually request a stream-token for — same as streamId for a movie; the specific episode's id for a series, so "Continue Watching" resumes straight into playback. */
+  /** The specific episode's id to actually request a stream-token for, so "Continue Watching" resumes straight into playback. */
   playStreamId: number;
   ext: string;
   watchedAt: string;
@@ -14,7 +14,7 @@ export interface WatchHistoryEntry {
 
 interface WatchHistoryDoc {
   streamId: number;
-  type: 'vod' | 'series';
+  type: 'series';
   name: string;
   logo: string;
   playStreamId: number;

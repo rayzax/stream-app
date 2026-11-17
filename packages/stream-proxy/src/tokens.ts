@@ -1,11 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-export type StreamType = 'live' | 'vod' | 'series';
+export type StreamType = 'live' | 'series';
 
 export interface StreamTokenPayload {
-  /** Xtream stream_id (for 'series', this is the episode's own stream id). */
+  /** Xtream stream_id ('series' is the episode's own stream id). */
   sid: string;
-  /** Container extension for VOD/series (e.g. "mp4", "mkv"); ignored for live. */
+  /** Container extension for a series episode (e.g. "mp4", "mkv"); ignored for live. */
   ext?: string;
   t: StreamType;
   /** App session id — lets the proxy enforce one active upstream per session. */

@@ -19,25 +19,6 @@ export async function catalogRoutes(fastify: FastifyInstance, cache: CatalogCach
     return { channels: cache.channelsForGuide() };
   });
 
-  fastify.get('/api/movies', async () => {
-    const categories = cache.categoriesMovies().map((c) => ({
-      categoryId: c.category_id,
-      categoryName: c.category_name,
-      movies: cache.moviesForCategory(c.category_id),
-    }));
-    return { categories };
-  });
-
-  fastify.get<{ Params: { id: string } }>('/api/movies/:id', async (req, reply) => {
-    const vodId = Number(req.params.id);
-    if (!Number.isFinite(vodId)) return reply.status(400).send({ error: 'invalid_id' });
-    try {
-      return await cache.movieDetails(vodId);
-    } catch {
-      return reply.status(502).send({ error: 'upstream_error' });
-    }
-  });
-
   fastify.get('/api/series', async () => {
     const categories = cache.categoriesSeries().map((c) => ({
       categoryId: c.category_id,
@@ -61,7 +42,6 @@ export async function catalogRoutes(fastify: FastifyInstance, cache: CatalogCach
     const results = cache.search(req.query.q ?? '');
     return {
       live: results.filter((r) => r.type === 'live'),
-      vod: results.filter((r) => r.type === 'vod'),
       series: results.filter((r) => r.type === 'series'),
     };
   });

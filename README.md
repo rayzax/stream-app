@@ -2,8 +2,8 @@
 
 A private, mobile-first IPTV web app: Sports (live-now, grouped by league),
 Live TV (full channel browser + a curated cable-guide view), Stream
-(on-demand movies and TV series, with watch history and genre rows), and
-global search — backed by an Xtream Codes provider, deployed on Cloud Run.
+(on-demand TV series, with watch history and genre rows), and global
+search — backed by an Xtream Codes provider, deployed on Cloud Run.
 
 - **Frontend:** React + Vite, PWA (installable, works like a native app on
   your phone's home screen), hls.js/mpegts.js video playback.

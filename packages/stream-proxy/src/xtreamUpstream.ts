@@ -21,14 +21,7 @@ export function liveUpstreamUrl(creds: XtreamCreds, streamId: string): string {
   return `${base}/live/${encodeURIComponent(creds.username)}/${encodeURIComponent(creds.password)}/${encodeURIComponent(streamId)}.ts`;
 }
 
-/** Upstream URL for a VOD title. */
-export function vodUpstreamUrl(creds: XtreamCreds, streamId: string, ext: string): string {
-  const base = creds.server.replace(/\/+$/, '');
-  const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '') || 'mp4';
-  return `${base}/movie/${encodeURIComponent(creds.username)}/${encodeURIComponent(creds.password)}/${encodeURIComponent(streamId)}.${safeExt}`;
-}
-
-/** Upstream URL for a series episode — same file-passthrough convention as VOD, under "/series/" instead of "/movie/". */
+/** Upstream URL for a series episode — a direct file passthrough, same as a VOD movie would be, under "/series/". */
 export function seriesUpstreamUrl(creds: XtreamCreds, episodeId: string, ext: string): string {
   const base = creds.server.replace(/\/+$/, '');
   const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '') || 'mp4';

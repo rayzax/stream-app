@@ -37,7 +37,7 @@ function OtherGamesList({ others, onPick }: { others: SportsEntry[]; onPick: (st
 }
 
 export default function Player() {
-  const { type, id } = useParams<{ type: 'live' | 'vod' | 'series'; id: string }>();
+  const { type, id } = useParams<{ type: 'live' | 'series'; id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const streamId = Number(id);
@@ -62,9 +62,9 @@ export default function Player() {
   // episodes of the same show consolidate into one "Continue Watching"
   // entry) but playback always resumes via this specific stream/episode.
   useEffect(() => {
-    if (!token || !name || !ext || (type !== 'vod' && type !== 'series')) return;
+    if (!token || !name || !ext || type !== 'series') return;
     recordWatch({
-      streamId: type === 'series' && seriesId ? Number(seriesId) : streamId,
+      streamId: seriesId ? Number(seriesId) : streamId,
       type,
       name,
       logo: logo ?? '',

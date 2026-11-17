@@ -151,32 +151,6 @@ export function getTvGuide() {
   return request<{ channels: ChannelView[] }>('/api/tv/guide');
 }
 
-export interface MovieView {
-  streamId: number;
-  name: string;
-  logo: string;
-  categoryName: string;
-  rating: string;
-  containerExtension: string;
-  added: number;
-}
-
-export interface MovieCategory {
-  categoryId: string;
-  categoryName: string;
-  movies: MovieView[];
-}
-
-export function getMovies() {
-  return request<{ categories: MovieCategory[] }>('/api/movies');
-}
-
-export function getMovieDetails(id: number) {
-  return request<{ info: Record<string, unknown>; movie_data: { stream_id: number; container_extension: string } }>(
-    `/api/movies/${id}`,
-  );
-}
-
 export interface SeriesView {
   seriesId: number;
   name: string;
@@ -218,19 +192,17 @@ export function getSeriesDetails(id: number) {
 }
 
 export interface SearchResult {
-  type: 'live' | 'vod' | 'series';
+  type: 'live' | 'series';
   streamId: number;
   name: string;
   categoryName: string;
 }
 
 export function search(q: string) {
-  return request<{ live: SearchResult[]; vod: SearchResult[]; series: SearchResult[] }>(
-    `/api/search?q=${encodeURIComponent(q)}`,
-  );
+  return request<{ live: SearchResult[]; series: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`);
 }
 
-export function getStreamToken(streamId: number, type: 'live' | 'vod' | 'series', ext?: string) {
+export function getStreamToken(streamId: number, type: 'live' | 'series', ext?: string) {
   return request<{ url: string; via: 'homelab' | 'cloud'; expiresInSeconds: number }>('/api/stream-token', {
     method: 'POST',
     body: JSON.stringify({ streamId, type, ext }),
@@ -239,7 +211,7 @@ export function getStreamToken(streamId: number, type: 'live' | 'vod' | 'series'
 
 export interface WatchHistoryEntry {
   streamId: number;
-  type: 'vod' | 'series';
+  type: 'series';
   name: string;
   logo: string;
   playStreamId: number;

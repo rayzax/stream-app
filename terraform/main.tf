@@ -170,8 +170,13 @@ resource "google_cloud_run_v2_service" "app" {
           # parsed XMLTV guide for this provider's size genuinely uses
           # 500+MB — 512Mi was crash-looping the container (OOM/SIGABRT)
           # once requests were allowed to actually complete instead of
-          # timing out early. Generous headroom here on purpose.
-          memory = "2Gi"
+          # timing out early. Bumped again 2Gi -> 4Gi after adding the
+          # series catalog (get_series_categories/get_series): ~33k series
+          # across ~250 categories is another multi-MB raw JSON response
+          # fetched concurrently with everything else in refreshFull(), and
+          # 2Gi started OOM-crash-looping the instance again on every
+          # refresh. Generous headroom here on purpose.
+          memory = "4Gi"
         }
         # The catalog refresh (and sports/ESPN polling) runs on a background
         # setInterval, independent of incoming requests. Cloud Run's default
